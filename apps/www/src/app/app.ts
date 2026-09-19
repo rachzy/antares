@@ -1,13 +1,11 @@
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
-import { NxWelcome } from './nx-welcome';
+import { HlmButton } from '@spartan-ng/helm/button';
 
 @Component({
-  imports: [NxWelcome, RouterModule],
+  imports: [HlmButton, RouterModule],
   selector: 'an-root',
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
-export class App {
-  protected title = 'www';
-}
+export class App {}
