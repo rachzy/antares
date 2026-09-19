@@ -3,6 +3,7 @@
 **Goal:** Turn the empty `antares` repo into an Nx workspace containing an Angular app named `www` (component prefix `an`, spartan-ng for UI components), a minimal "Hello World" page, and a `CLAUDE.md` for agents.
 
 **Spec:** the user's request (no separate spec file). Binding requirements:
+
 - Nx workspace at the repo root (existing `LICENSE`, `.git`, `.claude/` must be preserved).
 - Angular app project named `www`, component selector prefix `an`.
 - spartan-ng (`@spartan-ng/cli` + `@spartan-ng/brain`, with Tailwind) installed and initialized as the component library.
@@ -24,6 +25,7 @@
 **Files:** workspace root config (`nx.json`, `package.json`, `package-lock.json`, `tsconfig.base.json`, `.gitignore`, etc.), `apps/www/**` (or wherever the Nx Angular preset places it — prefer `apps/www`).
 
 Steps:
+
 1. The repo root is not empty (LICENSE, .git, .claude), so `create-nx-workspace` cannot run in place directly. Generate a workspace in a scratch dir (use the session scratchpad, not `/tmp`) with: npm, Angular preset/app named `www`, prefix `an`, standalone, CSS or the default stylesheet (Tailwind comes in Task 2), no SSR, no e2e (or Playwright only if it is the default and cheap), no Nx Cloud (`--nxCloud=skip`), no git init. Then move the generated files into the repo root, preserving `LICENSE`, `.git`, `.claude`. Alternatively `npx nx init` + `@nx/angular:application` if simpler — outcome matters, not method.
 2. Confirm the project is named `www` (`npx nx show projects` prints `www`) and the component prefix is `an` (project `prefix` in `project.json`/`angular.json` and the ESLint `@angular-eslint/component-selector` rule, if ESLint is present).
 3. Add an `.npmrc`-free, clean `package.json` with `"name": "@antares/source"` (or the generator default) and standard scripts are not required; Nx targets suffice.
@@ -35,6 +37,7 @@ Steps:
 **Depends on:** Task 1.
 
 Steps:
+
 1. Install Tailwind CSS (v4 via `@tailwindcss/postcss` or the Angular-supported setup) and configure it for `www`, following the spartan-ng installation docs for Angular/Nx (`https://www.spartan.ng/documentation/installation`) and using the version currently on npm.
 2. Install `@spartan-ng/cli` and `@spartan-ng/brain`; run the spartan-ng Nx generator/CLI init (`npx nx g @spartan-ng/cli:ui-theme` and/or `npx nx g @spartan-ng/cli:ui button`, per current docs) so that the shared UI helm libraries and the theme are generated. Configure the generated UI libs to use the `an` prefix where the generator supports it (e.g. component selector prefix `an`); note in the report if it does not.
 3. Replace the generated default app page with a simple "Hello World" page: an `App` root component (selector `an-root`) rendering a centered heading "Hello World" and one spartan-ng button (e.g. label "Click me") styled with Tailwind. Remove the Nx welcome/placeholder component if generated.
@@ -47,6 +50,7 @@ Steps:
 **Depends on:** Tasks 1–2 (needs the real commands and structure).
 
 Create `CLAUDE.md` at the repo root, concise, containing:
+
 - **Project overview:** Antares, an Nx monorepo (npm), with an Angular app `www` in `apps/www`; component selector prefix `an`; UI built with spartan-ng (brain + helm, Tailwind); where the generated spartan UI libs live.
 - **Common commands** (verified to work in this repo): install, `nx serve www`, `nx build www`, `nx test www`, `nx lint www` (if it exists), `nx g @spartan-ng/cli:ui <component>` for adding components.
 - **Conventions:** standalone components, `an-` selector prefix, Tailwind for styling, prefer spartan-ng components over hand-rolled ones.

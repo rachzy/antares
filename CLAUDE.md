@@ -15,14 +15,14 @@ Nx monorepo (npm) with an Angular 22 zoneless app, `www`, in `apps/www`.
 ```sh
 npm install                                   # install dependencies
 npx nx serve www                              # dev server
-npx nx build www                              # production build (output in dist/)
+npx nx build www                              # production build (output in dist/apps/www)
 npx nx test www                               # unit tests (vitest)
 npx nx lint www                               # ESLint
+npx nx format:check                           # prettier check (libs/ui is ignored)
 npx nx g @spartan-ng/cli:ui <name> --directory=libs/ui   # add a spartan component
 ```
 
-The spartan generator prompts interactively for a few options.
-`nx format:check` currently fails on generated files; do not rely on it.
+The spartan generator runs unattended when `<name>` is a known primitive; it prompts only if the name is omitted or unknown.
 
 ## Conventions
 

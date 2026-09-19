@@ -19,8 +19,9 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    const button = compiled.querySelector('button');
+    const button = compiled.querySelector('button[data-slot="button"]');
     expect(button).not.toBeNull();
     expect(button?.textContent).toContain('Click me');
+    expect(button?.className).toContain('bg-primary');
   });
 });
