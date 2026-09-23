@@ -40,4 +40,48 @@ describe('SkyViewer', () => {
       });
     });
   });
+
+  it('shows the clicked RA/Dec when the sky is clicked', async () => {
+    pix2worldMock.mockReturnValue([83.8221, -5.3911]);
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
+
+    const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
+    skyDiv.dispatchEvent(new MouseEvent('click'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(pix2worldMock).toHaveBeenCalledWith(0, 0);
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('RA 83.8221°, Dec -5.3911°');
+  });
+
+  it('does not show a panel when the click falls outside the sky', async () => {
+    pix2worldMock.mockReturnValue(null);
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
+
+    const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
+    skyDiv.dispatchEvent(new MouseEvent('click'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent?.trim()).toBe('');
+  });
+
+  it('removes the click listener when the component is destroyed', async () => {
+    pix2worldMock.mockReturnValue([1, 2]);
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
+
+    const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
+    fixture.destroy();
+
+    expect(() => skyDiv.dispatchEvent(new MouseEvent('click'))).not.toThrow();
+    expect(pix2worldMock).not.toHaveBeenCalled();
+  });
 });
