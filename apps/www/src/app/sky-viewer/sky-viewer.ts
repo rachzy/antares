@@ -26,14 +26,19 @@ export class SkyViewer {
   }
 
   private async initAladin(): Promise<void> {
-    const { default: A } = await import('aladin-lite');
-    await A.init;
-    const aladin = A.aladin(this.skyDiv().nativeElement, {
-      survey: 'P/DSS2/color',
-      fov: 60,
-      cooFrame: 'equatorial',
-    });
-    this.attachClickHandler(aladin);
+    try {
+      const { default: A } = await import('aladin-lite');
+      await A.init;
+      const aladin = A.aladin(this.skyDiv().nativeElement, {
+        survey: 'P/DSS2/color',
+        fov: 60,
+        cooFrame: 'equatorial',
+      });
+      this.attachClickHandler(aladin);
+    } catch (error) {
+      console.error('Failed to initialize the sky viewer', error);
+      this.loadError.set(true);
+    }
   }
 
   private attachClickHandler(aladin: AladinInstance): void {

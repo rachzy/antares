@@ -84,4 +84,19 @@ describe('SkyViewer', () => {
     expect(() => skyDiv.dispatchEvent(new MouseEvent('click'))).not.toThrow();
     expect(pix2worldMock).not.toHaveBeenCalled();
   });
+
+  it('shows a fallback message when Aladin fails to initialize', async () => {
+    initPromise = Promise.reject(new Error('network error'));
+    initPromise.catch(() => {
+      /* silence Node's unhandledRejection detection; SkyViewer's own try/catch still observes this rejection */
+    });
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Unable to load the sky viewer.');
+    });
+  });
 });

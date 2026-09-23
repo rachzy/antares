@@ -1,6 +1,10 @@
 <div #skyDiv class="h-screen w-screen"></div>
 
-@if (selectedCoord(); as coord) {
+@if (loadError()) {
+  <p class="absolute bottom-4 left-4 rounded bg-destructive/10 px-3 py-2 text-sm text-destructive">
+    Unable to load the sky viewer.
+  </p>
+} @else if (selectedCoord(); as coord) {
   <div class="absolute bottom-4 left-4 rounded bg-card px-3 py-2 text-sm text-card-foreground shadow">
     RA {{ coord.ra.toFixed(4) }}&deg;, Dec {{ coord.dec.toFixed(4) }}&deg;
   </div>
