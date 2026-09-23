@@ -17,6 +17,7 @@ import type { AladinInstance } from 'aladin-lite';
 export class SkyViewer {
   protected readonly skyDiv = viewChild.required<ElementRef<HTMLDivElement>>('skyDiv');
   protected readonly selectedCoord = signal<{ ra: number; dec: number } | null>(null);
+  protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
 
   private readonly destroyRef = inject(DestroyRef);
@@ -34,6 +35,7 @@ export class SkyViewer {
         fov: 60,
         cooFrame: 'equatorial',
       });
+      this.loading.set(false);
       this.attachClickHandler(aladin);
     } catch (error) {
       console.error('Failed to initialize the sky viewer', error);
@@ -44,7 +46,20 @@ export class SkyViewer {
   private attachClickHandler(aladin: AladinInstance): void {
     const element = this.skyDiv().nativeElement;
     const onClick = (event: MouseEvent) => {
-      const coords = aladin.pix2world(event.offsetX, event.offsetY);
+      if (!(event.target instanceof HTMLCanvasElement)) {
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      let coords: [number, number] | null | undefined;
+      try {
+        coords = aladin.pix2world(x, y, 'icrs');
+      } catch {
+        return;
+      }
       if (!coords) {
         return;
       }

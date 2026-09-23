@@ -17,6 +17,12 @@ vi.mock('aladin-lite', () => ({
   },
 }));
 
+function clickSkyCanvas(skyDiv: HTMLDivElement, clientX: number, clientY: number): void {
+  const canvas = document.createElement('canvas');
+  skyDiv.appendChild(canvas);
+  canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX, clientY }));
+}
+
 describe('SkyViewer', () => {
   beforeEach(async () => {
     aladinMock.mockClear();
@@ -41,6 +47,24 @@ describe('SkyViewer', () => {
     });
   });
 
+  it('shows a loading message until Aladin finishes initializing', async () => {
+    let resolveInit!: () => void;
+    initPromise = new Promise((resolve) => {
+      resolveInit = resolve;
+    });
+
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('Loading the sky');
+
+    resolveInit();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent?.trim()).toBe('');
+    });
+  });
+
   it('shows the clicked RA/Dec when the sky is clicked', async () => {
     pix2worldMock.mockReturnValue([83.8221, -5.3911]);
     const fixture = TestBed.createComponent(SkyViewer);
@@ -48,11 +72,11 @@ describe('SkyViewer', () => {
     await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
 
     const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
-    skyDiv.dispatchEvent(new MouseEvent('click'));
+    clickSkyCanvas(skyDiv, 10, 20);
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(pix2worldMock).toHaveBeenCalledWith(0, 0);
+    expect(pix2worldMock).toHaveBeenCalledWith(10, 20, 'icrs');
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('RA 83.8221°, Dec -5.3911°');
   });
@@ -64,12 +88,45 @@ describe('SkyViewer', () => {
     await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
 
     const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
-    skyDiv.dispatchEvent(new MouseEvent('click'));
+    clickSkyCanvas(skyDiv, 0, 0);
     fixture.detectChanges();
     await fixture.whenStable();
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent?.trim()).toBe('');
+  });
+
+  it('does not throw and leaves the panel unchanged when a click falls outside the projected sky disk', async () => {
+    pix2worldMock.mockImplementation(() => {
+      throw new TypeError('undefined is not iterable');
+    });
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
+
+    const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
+    expect(() => clickSkyCanvas(skyDiv, 0, 0)).not.toThrow();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent?.trim()).toBe('');
+  });
+
+  it('ignores clicks on Aladin\'s own UI controls, not just the sky canvas', async () => {
+    pix2worldMock.mockReturnValue([1, 2]);
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
+
+    const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
+    const control = document.createElement('button');
+    skyDiv.appendChild(control);
+    control.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(pix2worldMock).not.toHaveBeenCalled();
   });
 
   it('removes the click listener when the component is destroyed', async () => {
@@ -81,7 +138,7 @@ describe('SkyViewer', () => {
     const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
     fixture.destroy();
 
-    expect(() => skyDiv.dispatchEvent(new MouseEvent('click'))).not.toThrow();
+    expect(() => clickSkyCanvas(skyDiv, 1, 1)).not.toThrow();
     expect(pix2worldMock).not.toHaveBeenCalled();
   });
 
