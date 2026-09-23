@@ -1,27 +1,30 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { App } from './app';
+import { appRoutes } from './app.routes';
+import { SkyViewer } from './sky-viewer/sky-viewer';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [provideRouter(appRoutes)],
     }).compileComponents();
   });
 
-  it('should render the Hello World heading', async () => {
+  it('should render a router outlet', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello World');
+    expect(compiled.querySelector('router-outlet')).not.toBeNull();
   });
+});
 
-  it('should render the Click me button', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    const button = compiled.querySelector('button[data-slot="button"]');
-    expect(button).not.toBeNull();
-    expect(button?.textContent).toContain('Click me');
-    expect(button?.className).toContain('bg-primary');
+describe('appRoutes', () => {
+  it('routes the empty path to SkyViewer', async () => {
+    const [route] = appRoutes;
+    expect(route.path).toBe('');
+    const loadComponent = route.loadComponent as () => Promise<typeof SkyViewer>;
+    await expect(loadComponent()).resolves.toBe(SkyViewer);
   });
 });
