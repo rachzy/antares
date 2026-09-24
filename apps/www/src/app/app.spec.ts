@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { appRoutes } from './app.routes';
-import { SkyViewer } from './sky-viewer/sky-viewer';
+import { SkyViewer } from './components/containers/sky-viewer/sky-viewer';
 
 describe('App', () => {
   beforeEach(async () => {
