@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { appRoutes } from './app.routes';
-import { SkyViewer } from './components/containers/sky-viewer/sky-viewer';
+import { Welcome } from './components/pages/welcome/welcome';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -21,10 +21,10 @@ describe('App', () => {
 });
 
 describe('appRoutes', () => {
-  it('routes the empty path to SkyViewer', async () => {
+  it('routes the empty path to Welcome', async () => {
     const [route] = appRoutes;
     expect(route.path).toBe('');
-    const loadComponent = route.loadComponent as () => Promise<typeof SkyViewer>;
-    await expect(loadComponent()).resolves.toBe(SkyViewer);
+    const loadComponent = route.loadComponent as () => Promise<typeof Welcome>;
+    await expect(loadComponent()).resolves.toBe(Welcome);
   });
 });

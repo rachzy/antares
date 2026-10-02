@@ -17,10 +17,16 @@ vi.mock('aladin-lite', () => ({
   },
 }));
 
-function clickSkyCanvas(skyDiv: HTMLDivElement, clientX: number, clientY: number): void {
+function clickSkyCanvas(
+  skyDiv: HTMLDivElement,
+  clientX: number,
+  clientY: number,
+): void {
   const canvas = document.createElement('canvas');
   skyDiv.appendChild(canvas);
-  canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX, clientY }));
+  canvas.dispatchEvent(
+    new MouseEvent('click', { bubbles: true, clientX, clientY }),
+  );
 }
 
 describe('SkyViewer', () => {
@@ -43,6 +49,7 @@ describe('SkyViewer', () => {
         survey: 'P/DSS2/color',
         fov: 60,
         cooFrame: 'equatorial',
+        mode: 'dark',
       });
     });
   });
@@ -113,7 +120,7 @@ describe('SkyViewer', () => {
     expect(compiled.textContent?.trim()).toBe('');
   });
 
-  it('ignores clicks on Aladin\'s own UI controls, not just the sky canvas', async () => {
+  it("ignores clicks on Aladin's own UI controls, not just the sky canvas", async () => {
     pix2worldMock.mockReturnValue([1, 2]);
     const fixture = TestBed.createComponent(SkyViewer);
     await fixture.whenStable();
