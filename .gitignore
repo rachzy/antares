@@ -57,3 +57,5 @@ vitest.config.*.timestamp*
 plans/
 
 apps/*/src/gen/
+__pycache__/
+*.pyc
