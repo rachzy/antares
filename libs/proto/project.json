@@ -1,0 +1,30 @@
+{
+  "name": "proto",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "libs/proto",
+  "tags": [],
+  "targets": {
+    "generate": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["{projectRoot}/antares/**/*.proto"],
+      "outputs": [
+        "{projectRoot}/gen/go",
+        "{workspaceRoot}/apps/shaula/src/gen",
+        "{workspaceRoot}/apps/fang/src/gen"
+      ],
+      "options": {
+        "cwd": "libs/proto",
+        "parallel": false,
+        "commands": [
+          "mkdir -p gen/go ../../apps/shaula/src/gen ../../apps/fang/src/gen",
+          "protoc -I . --go_out=gen/go --go_opt=module=github.com/rachzy/antares/libs/proto/gen/go --go-grpc_out=gen/go --go-grpc_opt=module=github.com/rachzy/antares/libs/proto/gen/go antares/shaula/v1/shaula.proto antares/fang/v1/fang.proto",
+          "cd ../../apps/shaula && uv run python -m grpc_tools.protoc -I ../../libs/proto --python_out=src/gen --pyi_out=src/gen --grpc_python_out=src/gen antares/shaula/v1/shaula.proto",
+          "cd ../../apps/fang && uv run python -m grpc_tools.protoc -I ../../libs/proto --python_out=src/gen --pyi_out=src/gen --grpc_python_out=src/gen antares/fang/v1/fang.proto",
+          "node ../../libs/proto/tools/add-init-files.mjs ../../apps/shaula/src/gen ../../apps/fang/src/gen"
+        ]
+      }
+    }
+  }
+}

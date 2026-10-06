@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package antares.shaula.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/rachzy/antares/libs/proto/gen/go/antares/shaula/v1;shaulav1";
+
+// Feature extraction over light-curve photometry. One RPC is one unit of
+// work; this service holds no job state, queue or cache.
+service Shaula {
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+  rpc ResolveTarget(ResolveTargetRequest) returns (ResolveTargetResponse);
+  rpc ExtractFeatures(ExtractFeaturesRequest) returns (stream ExtractFeaturesEvent);
+}
+
+message GetVersionRequest {}
+
+message GetVersionResponse {
+  string library_version = 1;
+  string service_version = 2;
+}
+
+message ResolveTargetRequest {
+  string query = 1;
+  string mission = 2;
+}
+
+// catalog_id is exact and is what the caller uses as a cache key. Never key
+// a cache on ra_deg/dec_deg: resolvers disagree in the last decimals.
+//
+// designation is "<catalog> <catalog_id>", for example "KIC 8120608". Pass it
+// as ExtractFeaturesRequest.target so the star extracted is exactly the star
+// resolved: a free-text name is looked up again by the archive and can land on
+// a different star than the one the cache key was built from.
+message ResolveTargetResponse {
+  string catalog = 1;
+  string catalog_id = 2;
+  double ra_deg = 3;
+  double dec_deg = 4;
+  string display_name = 5;
+  string designation = 6;
+}
+
+message ExtractFeaturesRequest {
+  // Callers should pass ResolveTargetResponse.designation, not a free-text name.
+  string target = 1;
+  string mission = 2;
+  double sigma_clip = 3;
+  bool download_all = 4;
+  string author = 5;
+  string exptime = 6;
+  bool use_tls = 7;
+  bool mask_eclipses = 8;
+}
+
+message Progress {
+  string stage = 1;
+  string message = 2;
+  bool has_fraction = 3;
+  double fraction = 4;
+}
+
+message FeatureSet {
+  string target = 1;
+  string mission = 2;
+  repeated google.protobuf.Struct features = 3;
+  string library_version = 4;
+}
+
+message ExtractFeaturesEvent {
+  oneof event {
+    Progress progress = 1;
+    FeatureSet result = 2;
+  }
+}
