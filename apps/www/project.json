@@ -76,6 +76,13 @@
         "staticFilePath": "dist/apps/www/browser",
         "spa": true
       }
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "docker build -f apps/www/Dockerfile -t antares-www:local ."
+      }
     }
   }
 }

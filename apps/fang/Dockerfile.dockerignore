@@ -1,0 +1,15 @@
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+apps/*/src/gen
+apps/*/tests
+apps/www
+libs/ui
+node_modules
+dist
+.nx
+.angular
+.git
+plans

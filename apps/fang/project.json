@@ -23,11 +23,21 @@
     "lint": {
       "executor": "nx:run-commands",
       "cache": true,
-      "options": { "cwd": "apps/fang", "command": "uv run ruff check src tests" }
+      "options": {
+        "cwd": "apps/fang",
+        "command": "uv run ruff check src tests"
+      }
     },
     "install": {
       "executor": "nx:run-commands",
       "options": { "cwd": "apps/fang", "command": "uv sync" }
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "docker build -f apps/fang/Dockerfile -t antares-fang:local ."
+      }
     }
   }
 }
