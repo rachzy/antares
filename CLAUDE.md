@@ -36,6 +36,8 @@ npx nx g @spartan-ng/cli:ui <name> --directory=libs/ui   # add a spartan compone
 
 The spartan generator runs unattended when `<name>` is a known primitive; it prompts only if the name is omitted or unknown.
 
+`package.json` wraps the common flows (`npm run dev`, `dev:<app>`, `lint`, `lint:fix`, `format`, `format:check`, `test`, `ci`, `build:docker`, `setup`), and the `Makefile` adds shortcuts on top of them plus container management (`make help`, `make up`, `make down`, `make logs`). Local service data lives in the git-ignored `.data/`.
+
 ## Conventions
 
 - Standalone components only, with the `an-` selector prefix for app components.

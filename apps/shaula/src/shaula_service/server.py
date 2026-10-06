@@ -18,9 +18,7 @@ EXTRACTION_SLOTS = 4
 CONTROL_WORKERS = 4
 
 
-def build_server(
-    address: str, extraction_slots: int = EXTRACTION_SLOTS
-) -> tuple[grpc.Server, int]:
+def build_server(address: str, extraction_slots: int = EXTRACTION_SLOTS) -> tuple[grpc.Server, int]:
     """Build the server and return it with its bound port.
 
     One extraction occupies a worker for minutes, so the caller's queue should

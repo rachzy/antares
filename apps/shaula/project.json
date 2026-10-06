@@ -18,7 +18,10 @@
       "executor": "nx:run-commands",
       "cache": true,
       "dependsOn": ["proto:generate"],
-      "options": { "cwd": "apps/shaula", "command": "uv run pytest" }
+      "options": {
+        "cwd": "apps/shaula",
+        "command": "uv run pytest"
+      }
     },
     "lint": {
       "executor": "nx:run-commands",
@@ -28,9 +31,27 @@
         "command": "uv run ruff check src tests"
       }
     },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/shaula",
+        "command": "uv run ruff format src tests"
+      }
+    },
+    "format-check": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "cwd": "apps/shaula",
+        "command": "uv run ruff format --check src tests"
+      }
+    },
     "install": {
       "executor": "nx:run-commands",
-      "options": { "cwd": "apps/shaula", "command": "uv sync" }
+      "options": {
+        "cwd": "apps/shaula",
+        "command": "uv sync"
+      }
     },
     "docker-build": {
       "executor": "nx:run-commands",

@@ -84,9 +84,7 @@ def test_predict_returns_rows_and_the_run_id(tmp_path, monkeypatch):
     monkeypatch.setattr(
         servicer_module,
         "predict_features",
-        lambda rows, model_dir, star_id: [
-            {**rows[0], "prob_stack": 0.9, "model_run_id": "run-1"}
-        ],
+        lambda rows, model_dir, star_id: [{**rows[0], "prob_stack": 0.9, "model_run_id": "run-1"}],
     )
     monkeypatch.setattr(
         servicer_module,
@@ -141,9 +139,7 @@ def test_predict_reports_the_served_runs_schema_version(tmp_path, monkeypatch):
     assert response.model_run_id == "run-2"
 
 
-def test_predict_with_a_model_that_mismatches_the_schema_is_a_server_fault(
-    tmp_path, monkeypatch
-):
+def test_predict_with_a_model_that_mismatches_the_schema_is_a_server_fault(tmp_path, monkeypatch):
     """SchemaVersionError comes from load_model: the deployment is wrong, not the caller."""
 
     def mismatched(rows, model_dir, star_id):
