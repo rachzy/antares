@@ -14,18 +14,28 @@ from .servicer import ShaulaServicer
 logger = logging.getLogger(__name__)
 
 DEFAULT_ADDRESS = "127.0.0.1:50051"
+EXTRACTION_SLOTS = 4
+CONTROL_WORKERS = 4
+
+
+def build_server(
+    address: str, extraction_slots: int = EXTRACTION_SLOTS
+) -> tuple[grpc.Server, int]:
+    """Build the server and return it with its bound port.
+
+    One extraction occupies a worker for minutes, so the caller's queue should
+    admit no more than ``extraction_slots`` jobs. The extra workers keep the
+    short RPCs answerable while every extraction slot is busy.
+    """
+    pool = futures.ThreadPoolExecutor(max_workers=extraction_slots + CONTROL_WORKERS)
+    server = grpc.server(pool)
+    shaula_pb2_grpc.add_ShaulaServicer_to_server(ShaulaServicer(), server)
+    return server, server.add_insecure_port(address)
 
 
 def serve(address: str) -> None:
-    """Run until terminated.
-
-    One extraction occupies a worker for minutes, so the pool size is the
-    real concurrency limit of this machine. The caller's queue should admit
-    no more than this many jobs at once.
-    """
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
-    shaula_pb2_grpc.add_ShaulaServicer_to_server(ShaulaServicer(), server)
-    server.add_insecure_port(address)
+    """Run until terminated."""
+    server, _ = build_server(address)
     server.start()
     logger.info("shaula service listening on %s", address)
     server.wait_for_termination()

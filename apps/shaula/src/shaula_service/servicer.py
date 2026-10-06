@@ -15,6 +15,19 @@ from .convert import to_struct
 SERVICE_VERSION = "0.0.1a0"
 
 
+class _Cancelled(Exception):
+    """Raised from the progress callback to stop an extraction nobody is reading."""
+
+
+def _status_for(error: Exception) -> tuple[grpc.StatusCode, str]:
+    """ValueError and RuntimeError are the library's own data and config failures."""
+    if isinstance(error, OSError):
+        return grpc.StatusCode.UNAVAILABLE, str(error) or type(error).__name__
+    if isinstance(error, (ValueError, RuntimeError)):
+        return grpc.StatusCode.FAILED_PRECONDITION, str(error)
+    return grpc.StatusCode.INTERNAL, f"{type(error).__name__}: {error}"
+
+
 class ShaulaServicer(shaula_pb2_grpc.ShaulaServicer):
     def GetVersion(self, request, context):
         return shaula_pb2.GetVersionResponse(
@@ -42,6 +55,13 @@ class ShaulaServicer(shaula_pb2_grpc.ShaulaServicer):
     def ExtractFeatures(self, request, context):
         events: queue.Queue = queue.Queue()
         outcome: dict[str, object] = {}
+        cancelled = threading.Event()
+        context.add_callback(cancelled.set)
+
+        def on_progress(event: ProgressEvent) -> None:
+            if cancelled.is_set():
+                raise _Cancelled
+            events.put(event)
 
         def run() -> None:
             try:
@@ -54,7 +74,7 @@ class ShaulaServicer(shaula_pb2_grpc.ShaulaServicer):
                     exptime=request.exptime or None,
                     use_tls=request.use_tls,
                     mask_eclipses=request.mask_eclipses,
-                    progress=events.put,
+                    progress=on_progress,
                 )
             except Exception as error:  # noqa: BLE001 - surfaced to the client below
                 outcome["error"] = error
@@ -64,17 +84,20 @@ class ShaulaServicer(shaula_pb2_grpc.ShaulaServicer):
         worker = threading.Thread(target=run, daemon=True)
         worker.start()
 
-        while True:
-            event = events.get()
-            if event is None:
-                break
-            yield shaula_pb2.ExtractFeaturesEvent(progress=self._to_progress(event))
+        try:
+            while True:
+                event = events.get()
+                if event is None:
+                    break
+                yield shaula_pb2.ExtractFeaturesEvent(progress=self._to_progress(event))
+        finally:
+            cancelled.set()
 
         worker.join()
 
         error = outcome.get("error")
         if error is not None:
-            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(error))
+            context.abort(*_status_for(error))
 
         result = outcome["result"]
         yield shaula_pb2.ExtractFeaturesEvent(

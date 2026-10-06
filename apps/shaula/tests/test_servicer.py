@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import grpc
 import pytest
 from antares.shaula.v1 import shaula_pb2
@@ -21,6 +23,11 @@ class _Context:
     def __init__(self) -> None:
         self.code: grpc.StatusCode | None = None
         self.details: str = ""
+        self.callbacks: list = []
+
+    def add_callback(self, callback):
+        self.callbacks.append(callback)
+        return True
 
     def abort(self, code, details):
         self.code = code
@@ -232,3 +239,99 @@ def test_a_target_with_no_candidates_still_yields_a_result(monkeypatch):
 
     assert [e.WhichOneof("event") for e in emitted] == ["result"]
     assert list(emitted[0].result.features) == []
+
+
+def _failing_extract(error):
+    return _fake_extract(events=[], failure=error)
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (ConnectionError("MAST timed out"), grpc.StatusCode.UNAVAILABLE),
+        (RuntimeError("use_tls requires the tls extra"), grpc.StatusCode.FAILED_PRECONDITION),
+        (KeyError("flux"), grpc.StatusCode.INTERNAL),
+    ],
+)
+def test_extraction_errors_map_to_distinct_statuses(monkeypatch, error, code):
+    monkeypatch.setattr(servicer_module, "extract", _failing_extract(error))
+
+    context = _Context()
+    request = shaula_pb2.ExtractFeaturesRequest(target="Kepler-11", mission="Kepler")
+
+    with pytest.raises(_Aborted):
+        list(ShaulaServicer().ExtractFeatures(request, context))
+
+    assert context.code == code
+
+
+def test_an_unexpected_error_names_its_type(monkeypatch):
+    monkeypatch.setattr(servicer_module, "extract", _failing_extract(KeyError("flux")))
+
+    context = _Context()
+    request = shaula_pb2.ExtractFeaturesRequest(target="Kepler-11", mission="Kepler")
+
+    with pytest.raises(_Aborted):
+        list(ShaulaServicer().ExtractFeatures(request, context))
+
+    assert "KeyError" in context.details
+
+
+def test_abandoning_the_stream_cancels_the_extraction(monkeypatch):
+    """A consumer that stops reading must make the library's progress callback raise."""
+    resume = threading.Event()
+    finished = threading.Event()
+    outcome: dict[str, bool] = {}
+
+    def extract(target, mission, *, progress=None, **kwargs):
+        progress(ProgressEvent(stage="downloading", message="first"))
+        resume.wait(5)
+        try:
+            progress(ProgressEvent(stage="period_search", message="second"))
+        except Exception:
+            outcome["cancelled"] = True
+            raise
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(servicer_module, "extract", extract)
+
+    request = shaula_pb2.ExtractFeaturesRequest(target="Kepler-11", mission="Kepler")
+    stream = ShaulaServicer().ExtractFeatures(request, _Context())
+    next(stream)
+    stream.close()
+    resume.set()
+
+    assert finished.wait(5)
+    assert outcome.get("cancelled") is True
+
+
+def test_a_terminated_rpc_cancels_the_extraction(monkeypatch):
+    """gRPC cancel or deadline fires the registered callback while the handler is blocked."""
+    resume = threading.Event()
+    finished = threading.Event()
+    outcome: dict[str, bool] = {}
+
+    def extract(target, mission, *, progress=None, **kwargs):
+        progress(ProgressEvent(stage="downloading", message="first"))
+        resume.wait(5)
+        try:
+            progress(ProgressEvent(stage="period_search", message="second"))
+        except Exception:
+            outcome["cancelled"] = True
+            raise
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(servicer_module, "extract", extract)
+
+    context = _Context()
+    request = shaula_pb2.ExtractFeaturesRequest(target="Kepler-11", mission="Kepler")
+    stream = ShaulaServicer().ExtractFeatures(request, context)
+    next(stream)
+    for callback in context.callbacks:
+        callback()
+    resume.set()
+
+    assert finished.wait(5)
+    assert outcome.get("cancelled") is True
