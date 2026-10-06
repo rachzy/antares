@@ -7,7 +7,7 @@ function markPackages(root) {
   writeFileSync(join(root, "__init__.py"), "");
   for (const entry of readdirSync(root)) {
     const path = join(root, entry);
-    if (statSync(path).isDirectory()) markPackages(path);
+    if (entry !== "__pycache__" && statSync(path).isDirectory()) markPackages(path);
   }
 }
 

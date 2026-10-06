@@ -1,0 +1,33 @@
+{
+  "name": "shaula",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/shaula/src",
+  "tags": [],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "dependsOn": ["proto:generate"],
+      "options": {
+        "cwd": "apps/shaula",
+        "command": "uv run python -m shaula_service.server"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["proto:generate"],
+      "options": { "cwd": "apps/shaula", "command": "uv run pytest" }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": { "cwd": "apps/shaula", "command": "uv run ruff check src tests" }
+    },
+    "install": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "apps/shaula", "command": "uv sync" }
+    }
+  }
+}

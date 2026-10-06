@@ -1,0 +1,39 @@
+[project]
+name = "shaula-service"
+version = "0.0.1a0"
+description = "gRPC service wrapping the Shaula feature extraction pipeline"
+requires-python = ">=3.11,<3.15"
+dependencies = [
+    "shaula>=0.0.1a0",
+    "grpcio>=1.69",
+    "protobuf>=5.29",
+]
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.69",
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv.sources]
+shaula = { git = "https://github.com/rachzy/shaula", tag = "v0.0.1-alpha" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shaula_service"]
+dev-mode-dirs = ["src", "src/gen"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+extend-exclude = ["src/gen"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "src/gen"]
+addopts = "-q"
