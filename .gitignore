@@ -52,3 +52,6 @@ Thumbs.db
 
 vitest.config.*.timestamp*
 .superpowers
+
+# Implementation plans (local only, deleted when the refactor is done)
+plans/
