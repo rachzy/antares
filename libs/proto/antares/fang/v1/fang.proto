@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package antares.fang.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/rachzy/antares/libs/proto/gen/go/antares/fang/v1;fangv1";
+
+// Candidate classification and the trained-run registry. Training is not
+// exposed: it is an offline job whose artifacts are versioned by hand.
+service Fang {
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  rpc Predict(PredictRequest) returns (PredictResponse);
+}
+
+message GetVersionRequest {}
+
+message GetVersionResponse {
+  string library_version = 1;
+  string service_version = 2;
+}
+
+message ListRunsRequest {}
+
+message RunInfo {
+  string run_id = 1;
+  string created_at = 2;
+  int32 schema_version = 3;
+  string selected_model = 4;
+  double threshold = 5;
+}
+
+message ListRunsResponse {
+  repeated RunInfo runs = 1;
+}
+
+message PredictRequest {
+  repeated google.protobuf.Struct features = 1;
+  // Empty selects the newest run.
+  string run_id = 2;
+  string star_id = 3;
+}
+
+message PredictResponse {
+  repeated google.protobuf.Struct predictions = 1;
+  string model_run_id = 2;
+  int32 schema_version = 3;
+}

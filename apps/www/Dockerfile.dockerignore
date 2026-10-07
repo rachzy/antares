@@ -1,0 +1,10 @@
+**/node_modules
+**/__pycache__
+**/.venv
+dist
+.nx
+.angular
+.git
+plans
+apps/shaula
+apps/fang

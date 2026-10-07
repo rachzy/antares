@@ -1,0 +1,64 @@
+{
+  "name": "fang",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/fang/src",
+  "tags": [],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "dependsOn": ["proto:generate"],
+      "options": {
+        "cwd": "apps/fang",
+        "command": "uv run python -m fang_service.server"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["proto:generate"],
+      "options": {
+        "cwd": "apps/fang",
+        "command": "uv run pytest"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "cwd": "apps/fang",
+        "command": "uv run ruff check src tests"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/fang",
+        "command": "uv run ruff format src tests"
+      }
+    },
+    "format-check": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "cwd": "apps/fang",
+        "command": "uv run ruff format --check src tests"
+      }
+    },
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/fang",
+        "command": "uv sync"
+      }
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "docker build -f apps/fang/Dockerfile -t antares-fang:local ."
+      }
+    }
+  }
+}

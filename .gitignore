@@ -52,3 +52,13 @@ Thumbs.db
 
 vitest.config.*.timestamp*
 .superpowers
+
+# Implementation plans (local only, deleted when the refactor is done)
+plans/
+
+apps/*/src/gen/
+__pycache__/
+*.pyc
+
+# Local service data (lightcurve cache, trained models)
+.data/
