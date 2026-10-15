@@ -49,7 +49,7 @@ def test_resolve_target_maps_every_field(monkeypatch):
     monkeypatch.setattr(
         servicer_module,
         "resolve",
-        lambda query, mission: ResolvedTarget(
+        lambda query, mission, **_: ResolvedTarget(
             catalog="KIC",
             catalog_id="8120608",
             ra_deg=285.6794,
@@ -70,7 +70,7 @@ def test_resolve_target_maps_every_field(monkeypatch):
 
 
 def test_unresolvable_target_aborts_not_found(monkeypatch):
-    def missing(query, mission):
+    def missing(query, mission, **_):
         raise TargetNotFound(f"No KIC entry found for {query!r}.")
 
     monkeypatch.setattr(servicer_module, "resolve", missing)
@@ -86,7 +86,7 @@ def test_unresolvable_target_aborts_not_found(monkeypatch):
 
 
 def test_unsupported_mission_aborts_invalid_argument(monkeypatch):
-    def unsupported(query, mission):
+    def unsupported(query, mission, **_):
         raise ValueError(f"Unsupported mission {mission!r}")
 
     monkeypatch.setattr(servicer_module, "resolve", unsupported)
@@ -99,6 +99,108 @@ def test_unsupported_mission_aborts_invalid_argument(monkeypatch):
 
     assert context.code == grpc.StatusCode.INVALID_ARGUMENT
     assert "Hubble" in context.details
+
+
+def _record_resolve(monkeypatch, calls):
+    def fake(query, mission, **kwargs):
+        calls.append((query, mission, kwargs))
+        return ResolvedTarget(
+            catalog="KIC",
+            catalog_id="8120608",
+            ra_deg=298.65272,
+            dec_deg=43.95502,
+            display_name="KIC 8120608",
+        )
+
+    monkeypatch.setattr(servicer_module, "resolve", fake)
+
+
+def test_position_request_forwards_coordinates_and_no_query(monkeypatch):
+    calls = []
+    _record_resolve(monkeypatch, calls)
+
+    request = shaula_pb2.ResolveTargetRequest(mission="Kepler", ra_deg=298.65, dec_deg=43.95)
+    response = ShaulaServicer().ResolveTarget(request, _Context())
+
+    assert calls == [(None, "Kepler", {"ra_deg": 298.65, "dec_deg": 43.95})]
+    assert response.designation == "KIC 8120608"
+    assert response.display_name == "KIC 8120608"
+
+
+def test_zero_coordinates_are_forwarded_not_dropped(monkeypatch):
+    calls = []
+    _record_resolve(monkeypatch, calls)
+
+    request = shaula_pb2.ResolveTargetRequest(ra_deg=0.0, dec_deg=0.0)
+    ShaulaServicer().ResolveTarget(request, _Context())
+
+    assert calls == [(None, "Kepler", {"ra_deg": 0.0, "dec_deg": 0.0})]
+
+
+def test_name_request_forwards_no_coordinates(monkeypatch):
+    calls = []
+    _record_resolve(monkeypatch, calls)
+
+    ShaulaServicer().ResolveTarget(
+        shaula_pb2.ResolveTargetRequest(query="Kepler-186", mission="K2"), _Context()
+    )
+
+    assert calls == [("Kepler-186", "K2", {"ra_deg": None, "dec_deg": None})]
+
+
+def test_position_with_no_star_aborts_not_found(monkeypatch):
+    def missing(query, mission, **_):
+        raise TargetNotFound(
+            "No Kepler light curves found within 4 arcseconds of ra=10.0, dec=10.0."
+        )
+
+    monkeypatch.setattr(servicer_module, "resolve", missing)
+
+    context = _Context()
+    request = shaula_pb2.ResolveTargetRequest(ra_deg=10.0, dec_deg=10.0)
+
+    with pytest.raises(_Aborted):
+        ShaulaServicer().ResolveTarget(request, context)
+
+    assert context.code == grpc.StatusCode.NOT_FOUND
+    assert "arcseconds" in context.details
+
+
+@pytest.mark.parametrize(
+    "request_kwargs",
+    [
+        {"query": "Kepler-186", "ra_deg": 1.0, "dec_deg": 2.0},
+        {"query": "Kepler-186", "ra_deg": 0.0},
+        {"ra_deg": 1.0},
+        {"dec_deg": 2.0},
+        {},
+        {"mission": "Kepler"},
+    ],
+    ids=["query-and-position", "query-and-ra", "only-ra", "only-dec", "empty", "mission-only"],
+)
+def test_invalid_modes_abort_invalid_argument(request_kwargs):
+    """Uses the real library: these fail before any archive call."""
+    context = _Context()
+
+    with pytest.raises(_Aborted):
+        ShaulaServicer().ResolveTarget(shaula_pb2.ResolveTargetRequest(**request_kwargs), context)
+
+    assert context.code == grpc.StatusCode.INVALID_ARGUMENT
+
+
+@pytest.mark.parametrize(
+    ("ra", "dec"),
+    [(360.0, 0.0), (-1.0, 0.0), (10.0, 91.0), (10.0, -91.0), (float("nan"), 0.0)],
+)
+def test_out_of_range_position_aborts_invalid_argument(ra, dec):
+    """Uses the real library: range checks run before any archive call."""
+    context = _Context()
+    request = shaula_pb2.ResolveTargetRequest(ra_deg=ra, dec_deg=dec)
+
+    with pytest.raises(_Aborted):
+        ShaulaServicer().ResolveTarget(request, context)
+
+    assert context.code == grpc.StatusCode.INVALID_ARGUMENT
 
 
 def _fake_extract(events, result=None, failure=None):

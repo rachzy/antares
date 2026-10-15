@@ -36,8 +36,15 @@ class ShaulaServicer(shaula_pb2_grpc.ShaulaServicer):
         )
 
     def ResolveTarget(self, request, context):
+        ra_deg = request.ra_deg if request.HasField("ra_deg") else None
+        dec_deg = request.dec_deg if request.HasField("dec_deg") else None
         try:
-            resolved = resolve(request.query, request.mission or "Kepler")
+            resolved = resolve(
+                request.query or None,
+                request.mission or "Kepler",
+                ra_deg=ra_deg,
+                dec_deg=dec_deg,
+            )
         except TargetNotFound as error:
             context.abort(grpc.StatusCode.NOT_FOUND, str(error))
         except ValueError as error:
