@@ -16,13 +16,18 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local development
+security: []
 tags:
   - name: health
+    description: Liveness and upstream readiness.
   - name: targets
+    description: Star resolution by name or position.
   - name: jobs
     description: Feature extraction and analysis, answered from the cache or queued.
   - name: ml
+    description: Model runs and direct scoring of feature rows.
   - name: docs
+    description: This specification and its Swagger UI.
 
 paths:
   /healthz:
@@ -218,7 +223,9 @@ paths:
 
         With `Upgrade: websocket` the request switches to the event stream described in the README
         (frames `{"events":[...]}`, replay with `since`). Origins outside `ANTARES_ALLOWED_ORIGINS`
-        (other than the API's own host) are refused with a plain-text `403`.
+        (other than the API's own host) are refused with a plain-text `403`, and a failed handshake
+        (missing or invalid `Connection`/`Sec-WebSocket-*` headers) gets a plain-text `4xx` from the
+        WebSocket library.
       parameters:
         - name: token
           in: path
@@ -457,12 +464,10 @@ components:
           default: false
         author:
           type: string
-          maxLength: 64
-          description: Light-curve author filter, at most 64 bytes after trimming.
+          description: Light-curve author filter, at most 64 bytes (UTF-8) after trimming.
         exptime:
           type: string
-          maxLength: 32
-          description: Exposure-time filter, at most 32 bytes after trimming.
+          description: Exposure-time filter, at most 32 bytes (UTF-8) after trimming.
         use_tls:
           type: boolean
           default: false
@@ -478,8 +483,7 @@ components:
           description: '`/analyze` only: the model run to score with (default: the newest).'
         star_id:
           type: string
-          maxLength: 200
-          description: '`/analyze` only: copied into every prediction row (default `unknown`).'
+          description: '`/analyze` only: copied into every prediction row (default `unknown`), at most 200 bytes (UTF-8). Validated on both routes.'
 
     PredictRequest:
       type: object
@@ -497,8 +501,7 @@ components:
           description: 'The model run to score with (default: the newest).'
         star_id:
           type: string
-          maxLength: 200
-          description: Copied into every prediction row (default `unknown`).
+          description: Copied into every prediction row (default `unknown`), at most 200 bytes (UTF-8).
       example:
         features: [{ period_days: 129.9, MES: 12.5, vshape_metric: null }]
         star_id: KIC 8120608
