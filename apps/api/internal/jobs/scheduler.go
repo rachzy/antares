@@ -113,6 +113,7 @@ func (s *Scheduler) pumpLocked() dispatch {
 		}
 		s.active++
 		s.running[id] = true
+		s.wg.Add(1)
 		d.start = append(d.start, id)
 	}
 	for i, id := range s.queue {
@@ -132,7 +133,6 @@ func (s *Scheduler) dispatch(d dispatch) {
 		s.opt.Position(id, position)
 	}
 	for _, id := range d.start {
-		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
 			s.opt.Run(id)

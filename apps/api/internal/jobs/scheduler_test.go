@@ -291,3 +291,27 @@ func TestPositionReportsRunningWaitingAndUnknown(t *testing.T) {
 	h.finish("b")
 	s.Wait()
 }
+
+func TestWaitBlocksUntilPromotedJobReturns(t *testing.T) {
+	h := newHarness()
+	h.holdJob("a", "b")
+	s := jobs.NewScheduler(h.options(1, 10))
+	mustEnqueue(t, s, "a", 0)
+	mustEnqueue(t, s, "b", 1)
+	h.finish("a")
+	eventually(t, "b running", func() bool { return slices.Contains(h.startedIDs(), "b") })
+
+	done := make(chan struct{})
+	go func() { s.Wait(); close(done) }()
+	select {
+	case <-done:
+		t.Fatal("Wait returned while b was still running")
+	case <-time.After(50 * time.Millisecond):
+	}
+	h.finish("b")
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Wait did not return after b finished")
+	}
+}
