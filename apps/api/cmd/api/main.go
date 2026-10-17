@@ -10,7 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rachzy/antares/apps/api/internal/app"
 	"github.com/rachzy/antares/apps/api/internal/config"
+	"github.com/rachzy/antares/apps/api/internal/store"
+	"github.com/rachzy/antares/apps/api/internal/upstream"
 )
 
 func main() {
@@ -20,26 +23,62 @@ func main() {
 		log.Error("invalid configuration", "error", err)
 		os.Exit(2)
 	}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
-	srv := &http.Server{Addr: cfg.Addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	go func() {
-		<-ctx.Done()
-		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(shutdown)
-	}()
-
-	log.Info("listening", "addr", cfg.Addr)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Error("server stopped", "error", err)
+	if err := run(log, cfg); err != nil {
+		log.Error("api stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+func run(log *slog.Logger, cfg config.Config) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	db, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if err := store.Migrate(ctx, db); err != nil {
+		return err
+	}
+
+	shaulaConn, err := upstream.Dial(cfg.ShaulaAddr)
+	if err != nil {
+		return err
+	}
+	defer shaulaConn.Close()
+	fangConn, err := upstream.Dial(cfg.FangAddr)
+	if err != nil {
+		return err
+	}
+	defer fangConn.Close()
+
+	application, err := app.New(ctx, cfg, db, upstream.NewShaula(shaulaConn), upstream.NewFang(fangConn), log)
+	if err != nil {
+		return err
+	}
+	application.Start()
+
+	srv := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           application.Handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- srv.ListenAndServe() }()
+	log.Info("listening", "addr", cfg.Addr, "shaula", cfg.ShaulaAddr, "fang", cfg.FangAddr)
+
+	select {
+	case err := <-serveErr:
+		if !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+	case <-ctx.Done():
+	}
+
+	shutdown, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(shutdown)
+	return application.Shutdown(shutdown)
 }
