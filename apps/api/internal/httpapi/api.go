@@ -35,5 +35,7 @@ func New(be Backend, cfg config.Config, log *slog.Logger) http.Handler {
 	mux.HandleFunc("POST /targets/resolve", a.resolve)
 	mux.HandleFunc("GET /ml/runs", a.runs)
 	mux.HandleFunc("POST /ml/predict", a.predict)
+	mux.HandleFunc("POST /pipeline/extract", a.extract)
+	mux.HandleFunc("POST /analyze", a.analyze)
 	return a.recoverer(a.cors(a.logging(mux)))
 }
