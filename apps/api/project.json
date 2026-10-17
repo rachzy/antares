@@ -19,13 +19,19 @@
       "executor": "nx:run-commands",
       "dependsOn": ["proto:generate"],
       "continuous": true,
-      "options": { "cwd": "apps/api", "command": "go run ./cmd/api" }
+      "options": {
+        "cwd": "apps/api",
+        "command": "go run ./cmd/api"
+      }
     },
     "test": {
       "executor": "nx:run-commands",
       "dependsOn": ["proto:generate"],
       "cache": true,
-      "options": { "cwd": "apps/api", "command": "go test -race ./..." }
+      "options": {
+        "cwd": "apps/api",
+        "command": "go test -race ./..."
+      }
     },
     "lint": {
       "executor": "nx:run-commands",
@@ -34,6 +40,13 @@
       "options": {
         "cwd": "apps/api",
         "command": "test -z \"$(gofmt -l .)\" && go vet ./..."
+      }
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{workspaceRoot}",
+        "command": "docker build -f apps/api/Dockerfile -t antares-api:local ."
       }
     }
   }

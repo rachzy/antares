@@ -1,0 +1,17 @@
+.git
+.nx
+.angular
+.superpowers
+node_modules
+dist
+plans
+docs
+apps/www
+apps/shaula
+apps/fang
+libs/ui
+libs/proto/gen/go/antares
+libs/proto/gen/go/**/*.go
+**/*.db
+**/*.db-shm
+**/*.db-wal
