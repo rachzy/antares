@@ -67,3 +67,6 @@ __pycache__/
 *.db
 *.db-shm
 *.db-wal
+
+# Local api configuration
+apps/api/.env

@@ -14,23 +14,7 @@ npx nx run api:sqlc-check # fail if the committed internal/db is stale
 
 The API starts even when Shaula or Fang is unreachable; `/healthz` then reports `ready: false` until both have answered.
 
-| Variable                    | Default           | Meaning                                                                          |
-| --------------------------- | ----------------- | -------------------------------------------------------------------------------- |
-| `ANTARES_ADDR`              | `:8080`           | listen address                                                                   |
-| `ANTARES_DB_PATH`           | `antares.db`      | SQLite file (targets, caches, jobs, subscriptions)                               |
-| `ANTARES_SHAULA_ADDR`       | `127.0.0.1:50051` | Shaula gRPC address (plaintext: private network only)                            |
-| `ANTARES_FANG_ADDR`         | `127.0.0.1:50052` | Fang gRPC address (plaintext: private network only)                              |
-| `ANTARES_MAX_ACTIVE`        | `2`               | extractions running at once; keep at or below Shaula's worker pool (4)           |
-| `ANTARES_MAX_QUEUE`         | `50`              | waiting jobs allowed before new work is refused with `503`                       |
-| `ANTARES_PROMOTION_GRACE`   | `30s`             | a waiting job is kept only if a client is connected or polled less than this ago |
-| `ANTARES_JOB_TIMEOUT`       | `30m`             | hard limit for one job                                                           |
-| `ANTARES_STALL_TIMEOUT`     | `5m`              | a job with no progress event for this long is failed                             |
-| `ANTARES_TOKEN_RETENTION`   | `168h`            | how long a token keeps working                                                   |
-| `ANTARES_TESS_TTL`          | `720h`            | TESS cache entries expire after this (Kepler and K2 never do)                    |
-| `ANTARES_RING_SIZE`         | `500`             | events kept per job for replay                                                   |
-| `ANTARES_CONN_BUFFER`       | `64`              | per-WebSocket buffer; a connection that falls behind is dropped                  |
-| `ANTARES_COALESCE_INTERVAL` | `100ms`           | progress events are batched into one frame per interval                          |
-| `ANTARES_ALLOWED_ORIGINS`   | none              | comma-separated origins allowed by CORS and WebSocket origin checks              |
+Configuration is via `ANTARES_*` environment variables, all listed with their defaults and explanations in [`.env.example`](.env.example). Copy it to `.env` for local development; `npm run dev:api` and `make dev-api` load it.
 
 ## Routes
 
