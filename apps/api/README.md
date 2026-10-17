@@ -10,23 +10,23 @@ npx nx test api           # go test -race ./...
 npx nx run api:docker-build
 ```
 
-| Variable                    | Default           | Meaning                                                                           |
-| --------------------------- | ----------------- | --------------------------------------------------------------------------------- |
-| `ANTARES_ADDR`              | `:8080`           | listen address                                                                    |
-| `ANTARES_DB_PATH`           | `antares.db`      | SQLite file (targets, caches, jobs, subscriptions)                                |
-| `ANTARES_SHAULA_ADDR`       | `127.0.0.1:50051` | Shaula gRPC address (plaintext: private network only)                             |
-| `ANTARES_FANG_ADDR`         | `127.0.0.1:50052` | Fang gRPC address (plaintext: private network only)                               |
-| `ANTARES_MAX_ACTIVE`        | `2`               | extractions running at once; keep at or below Shaula's worker pool (4)            |
-| `ANTARES_MAX_QUEUE`         | `50`              | waiting jobs allowed before new work is refused with `503`                        |
-| `ANTARES_PROMOTION_GRACE`   | `30s`             | a waiting job is started only if a client is connected or left less than this ago |
-| `ANTARES_JOB_TIMEOUT`       | `30m`             | hard limit for one job                                                            |
-| `ANTARES_STALL_TIMEOUT`     | `5m`              | a job with no progress event for this long is failed                              |
-| `ANTARES_TOKEN_RETENTION`   | `168h`            | how long a token keeps working                                                    |
-| `ANTARES_TESS_TTL`          | `720h`            | TESS cache entries expire after this (Kepler and K2 never do)                     |
-| `ANTARES_RING_SIZE`         | `500`             | events kept per job for replay                                                    |
-| `ANTARES_CONN_BUFFER`       | `64`              | per-WebSocket buffer; a connection that falls behind is dropped                   |
-| `ANTARES_COALESCE_INTERVAL` | `100ms`           | progress events are batched into one frame per interval                           |
-| `ANTARES_ALLOWED_ORIGINS`   | none              | comma-separated origins allowed by CORS and WebSocket origin checks               |
+| Variable                    | Default           | Meaning                                                                          |
+| --------------------------- | ----------------- | -------------------------------------------------------------------------------- |
+| `ANTARES_ADDR`              | `:8080`           | listen address                                                                   |
+| `ANTARES_DB_PATH`           | `antares.db`      | SQLite file (targets, caches, jobs, subscriptions)                               |
+| `ANTARES_SHAULA_ADDR`       | `127.0.0.1:50051` | Shaula gRPC address (plaintext: private network only)                            |
+| `ANTARES_FANG_ADDR`         | `127.0.0.1:50052` | Fang gRPC address (plaintext: private network only)                              |
+| `ANTARES_MAX_ACTIVE`        | `2`               | extractions running at once; keep at or below Shaula's worker pool (4)           |
+| `ANTARES_MAX_QUEUE`         | `50`              | waiting jobs allowed before new work is refused with `503`                       |
+| `ANTARES_PROMOTION_GRACE`   | `30s`             | a waiting job is kept only if a client is connected or polled less than this ago |
+| `ANTARES_JOB_TIMEOUT`       | `30m`             | hard limit for one job                                                           |
+| `ANTARES_STALL_TIMEOUT`     | `5m`              | a job with no progress event for this long is failed                             |
+| `ANTARES_TOKEN_RETENTION`   | `168h`            | how long a token keeps working                                                   |
+| `ANTARES_TESS_TTL`          | `720h`            | TESS cache entries expire after this (Kepler and K2 never do)                    |
+| `ANTARES_RING_SIZE`         | `500`             | events kept per job for replay                                                   |
+| `ANTARES_CONN_BUFFER`       | `64`              | per-WebSocket buffer; a connection that falls behind is dropped                  |
+| `ANTARES_COALESCE_INTERVAL` | `100ms`           | progress events are batched into one frame per interval                          |
+| `ANTARES_ALLOWED_ORIGINS`   | none              | comma-separated origins allowed by CORS and WebSocket origin checks              |
 
 ## Routes
 
@@ -45,7 +45,7 @@ All bodies are JSON and strict: unknown fields are a `400`. Bodies are limited t
 Body, all optional except a `query` (or `ra_deg` and `dec_deg` instead, never both): `query`, `ra_deg`, `dec_deg`, `mission`, `sigma_clip` (default 5, in (0, 50]), `download_all`, `author`, `exptime`, `use_tls`, `mask_eclipses`, `force_refresh`, and for `/analyze` also `run_id` (default: newest model) and `star_id`.
 
 - `200 {"status":"done","result":{...}}` when the answer was already cached. `result.cached` is `true` and no job ran.
-- `202 {"status":"queued"|"running","token":"...","subscription_path":"/subscription/<token>","position":N}` otherwise. Keep the tab open until `status` is `running`: a waiting job whose client has gone is dropped when its turn comes.
+- `202 {"status":"queued"|"running","token":"...","subscription_path":"/subscription/<token>","position":N}` otherwise. Until the job is `running`, keep a WebSocket open on the subscription or poll its snapshot: a waiting job with nobody connected or polling for longer than `ANTARES_PROMOTION_GRACE` is dropped, by the periodic sweep or when its turn comes.
 
 `result` is `{"target":{...},"cached":bool,"shaula_version":"...","features":[...],"model_run_id":"...","schema_version":1,"predictions":[...]}`; the last three appear only for `/analyze`. Missing feature values are `null`.
 
@@ -65,7 +65,7 @@ Identical requests made while one is running share a single job; each caller sti
 
 ### `GET /subscription/{token}`
 
-Without an `Upgrade: websocket` header it returns a JSON snapshot: `{"kind","state","position","error","result","milestones":[...],"last_seq"}`. `state` is `queued`, `running`, `done`, `failed` or `dropped`.
+Without an `Upgrade: websocket` header it returns a JSON snapshot: `{"kind","state","position","error","result","milestones":[...],"last_seq"}`. `state` is `queued`, `running`, `done`, `failed` or `dropped`. Polling the snapshot counts as presence, so it also keeps a waiting job alive.
 
 With the upgrade it streams frames `{"events":[{"seq","type","stage","message","fraction","at","payload"}]}`:
 

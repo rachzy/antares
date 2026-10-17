@@ -24,7 +24,7 @@ var versionTimeout = 5 * time.Second
 const (
 	janitorInterval = time.Minute
 	roomRetention   = time.Hour
-	droppedMessage  = "nobody was connected when your turn came, so the job was dropped; resubmit and keep the page open until it starts"
+	droppedMessage  = "nobody was connected or polling while the job waited, so it was dropped; resubmit and stay connected or keep polling until it starts"
 )
 
 type App struct {

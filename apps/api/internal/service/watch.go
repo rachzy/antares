@@ -99,6 +99,9 @@ func (s *Service) Status(ctx context.Context, token string) (SubscriptionView, e
 	if err != nil {
 		return SubscriptionView{}, err
 	}
+	if room, ok := s.Hub.Lookup(job.ID); ok {
+		room.Touch()
+	}
 	milestones, err := s.Jobs.Milestones(ctx, job.ID)
 	if err != nil {
 		return SubscriptionView{}, errf(KindInternal, "load milestones: %v", err)

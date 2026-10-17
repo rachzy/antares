@@ -266,9 +266,19 @@ func TestAnExtractionFailureIsReportedAndNeverCached(t *testing.T) {
 	eventually(t, "the star to be extracted again", func() bool { return g.shaula.ExtractCount() == 2 })
 }
 
+func storedState(t *testing.T, db *sql.DB, token string) string {
+	t.Helper()
+	job, ok, err := jobs.Store{DB: db}.ByToken(context.Background(), token, time.Now())
+	if err != nil || !ok {
+		t.Fatalf("ByToken = %v, %v", ok, err)
+	}
+	return job.State
+}
+
 func TestAbsentQueuedSubscriberIsDroppedAndAConnectedOneRuns(t *testing.T) {
 	release := make(chan struct{})
-	g := newRig(t, map[string]string{"ANTARES_MAX_ACTIVE": "1"}, func(s *fake.Shaula, _ *fake.Fang) {
+	db := testdb.Open(t)
+	g := newRigWithDB(t, db, map[string]string{"ANTARES_MAX_ACTIVE": "1"}, func(s *fake.Shaula, _ *fake.Fang) {
 		s.ResolveFn = func(_ context.Context, req upstream.ResolveRequest) (upstream.Resolved, error) {
 			query := req.Query
 			id := map[string]string{"A": "1", "B": "2", "C": "3"}[query]
@@ -296,7 +306,7 @@ func TestAbsentQueuedSubscriberIsDroppedAndAConnectedOneRuns(t *testing.T) {
 	time.Sleep(250 * time.Millisecond)
 	close(release)
 
-	eventually(t, "B to be dropped", func() bool { return stateOf(g, t, tokenB) == "dropped" })
+	eventually(t, "B to be dropped", func() bool { return storedState(t, db, tokenB) == "dropped" })
 	_, view := g.get(t, "/subscription/"+tokenB)
 	if !strings.Contains(view["error"].(string), "connected") {
 		t.Fatalf("the user must be told why: %v", view["error"])
@@ -475,4 +485,42 @@ func TestVersionRefreshIsBounded(t *testing.T) {
 	if elapsed := time.Since(start); elapsed > 2*time.Second {
 		t.Fatalf("New and Tick took %v with a hanging upstream", elapsed)
 	}
+}
+
+func TestPollingKeepsAQueuedJobPresent(t *testing.T) {
+	release := make(chan struct{})
+	g := newRig(t, map[string]string{"ANTARES_MAX_ACTIVE": "1"}, func(s *fake.Shaula, _ *fake.Fang) {
+		s.ResolveFn = func(_ context.Context, req upstream.ResolveRequest) (upstream.Resolved, error) {
+			id := map[string]string{"A": "1", "B": "2"}[req.Query]
+			return upstream.Resolved{Catalog: "KIC", CatalogID: id, RA: 10, Dec: 10, DisplayName: req.Query, Designation: "KIC " + id}, nil
+		}
+		s.ExtractFn = func(ctx context.Context, req upstream.ExtractRequest, _ func(upstream.Progress)) (upstream.FeatureSet, error) {
+			if req.Target == "KIC 1" {
+				select {
+				case <-release:
+				case <-ctx.Done():
+					return upstream.FeatureSet{}, ctx.Err()
+				}
+			}
+			return fake.DefaultFeatureSet(req), nil
+		}
+	})
+
+	_, a := g.post(t, "/pipeline/extract", `{"query":"A"}`)
+	_, b := g.post(t, "/pipeline/extract", `{"query":"B"}`)
+	tokenA, tokenB := text(t, a, "token"), text(t, b, "token")
+
+	for range 12 {
+		time.Sleep(25 * time.Millisecond)
+		if s := stateOf(g, t, tokenB); s != "queued" {
+			t.Fatalf("polled job state = %q, want queued", s)
+		}
+	}
+	g.app.Tick(context.Background())
+	if s := stateOf(g, t, tokenB); s != "queued" {
+		t.Fatalf("a job whose client polls must survive the sweep, got %q", s)
+	}
+	close(release)
+	eventually(t, "A to finish", func() bool { return stateOf(g, t, tokenA) == "done" })
+	eventually(t, "the polled B to run and finish", func() bool { return stateOf(g, t, tokenB) == "done" })
 }
