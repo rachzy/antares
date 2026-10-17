@@ -20,8 +20,6 @@ type Target struct {
 
 type Targets struct{ DB *sql.DB }
 
-const targetColumns = `id, catalog, catalog_id, ra_deg, dec_deg, display_name, designation`
-
 type scanner interface{ Scan(dest ...any) error }
 
 func scanTarget(row scanner) (Target, error) {
