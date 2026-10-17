@@ -148,7 +148,7 @@ func (s *Service) enqueue(ctx context.Context, kind string, target store.Target,
 	position, err := s.Sched.Enqueue(joined.Job.ID)
 	if errors.Is(err, jobs.ErrQueueFull) {
 		message := "the queue was full"
-		if ferr := s.Jobs.Finish(ctx, joined.Job.ID, jobs.StateDropped, nil, message, s.Clock()); ferr != nil {
+		if ferr := s.Jobs.Finish(context.WithoutCancel(ctx), joined.Job.ID, jobs.StateDropped, nil, message, s.Clock()); ferr != nil {
 			s.log().Error("record rejected job", "job", joined.Job.ID, "error", ferr)
 		}
 		room.Append(hub.Failure(message))

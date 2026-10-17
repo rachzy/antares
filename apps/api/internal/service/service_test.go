@@ -691,6 +691,11 @@ func TestFinishedJobsAreServedFromPersistedHistory(t *testing.T) {
 		t.Fatalf("since=2 must return only the final event, got %+v", later.History)
 	}
 
+	past, _ := e.svc.Watch(ctx, done, 50)
+	if len(past.History) != 1 || past.History[0].Type != hub.TypeResult || past.History[0].Seq <= 50 {
+		t.Fatalf("a client ahead of the persisted milestones must still get the final event, got %+v", past.History)
+	}
+
 	failed := finish("failed", jobs.StateFailed, "No Kepler light curves found", nil)
 	failedWatch, _ := e.svc.Watch(ctx, failed, 0)
 	if end := failedWatch.History[len(failedWatch.History)-1]; end.Type != hub.TypeError || !strings.Contains(end.Message, "No Kepler") {

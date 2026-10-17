@@ -74,7 +74,7 @@ func (s *Service) history(ctx context.Context, job jobs.Job, since uint64) ([]hu
 			events = append(events, hub.Event{Seq: last, Type: hub.TypeState, Stage: m.Stage, Message: m.Message, At: m.At})
 		}
 	}
-	if final, ok := terminalEvent(job, last+1); ok && final.Seq > since {
+	if final, ok := terminalEvent(job, max(last, since)+1); ok {
 		events = append(events, final)
 	}
 	return events, nil
