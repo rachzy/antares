@@ -3,6 +3,7 @@ module github.com/rachzy/antares/apps/api
 go 1.27
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/rachzy/antares/libs/proto/gen/go v0.0.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12

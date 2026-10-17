@@ -37,5 +37,6 @@ func New(be Backend, cfg config.Config, log *slog.Logger) http.Handler {
 	mux.HandleFunc("POST /ml/predict", a.predict)
 	mux.HandleFunc("POST /pipeline/extract", a.extract)
 	mux.HandleFunc("POST /analyze", a.analyze)
+	mux.HandleFunc("GET /subscription/{token}", a.subscription)
 	return a.recoverer(a.cors(a.logging(mux)))
 }
