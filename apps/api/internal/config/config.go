@@ -1,3 +1,4 @@
+// Package config loads the API's settings from ANTARES_* environment variables.
 package config
 
 import (
@@ -8,24 +9,48 @@ import (
 	"time"
 )
 
+// Config holds the API's runtime settings. Use Load: several fields must be positive, so the zero
+// value is not usable.
 type Config struct {
-	Addr             string
-	DBPath           string
-	ShaulaAddr       string
-	FangAddr         string
-	MaxActive        int
-	MaxQueue         int
-	PromotionGrace   time.Duration
-	JobTimeout       time.Duration
-	StallTimeout     time.Duration
-	TokenRetention   time.Duration
-	TESSTTL          time.Duration
-	RingSize         int
-	ConnBuffer       int
+	// Addr is the HTTP listen address.
+	Addr string
+	// DBPath is the SQLite database file.
+	DBPath string
+	// ShaulaAddr and FangAddr are the gRPC addresses of the private services.
+	ShaulaAddr string
+	FangAddr   string
+	// MaxActive is how many jobs may run at once.
+	MaxActive int
+	// MaxQueue is how many jobs may wait for a slot; with 0, a submission is rejected whenever
+	// every slot is busy.
+	MaxQueue int
+	// PromotionGrace is how long after its last poll or disconnect a queued job still counts as
+	// watched. Unwatched jobs are dropped instead of started.
+	PromotionGrace time.Duration
+	// JobTimeout bounds a job's whole run.
+	JobTimeout time.Duration
+	// StallTimeout is how long a running job may go without a progress event before it is
+	// cancelled.
+	StallTimeout time.Duration
+	// TokenRetention is how long a subscription token stays valid after it is issued.
+	TokenRetention time.Duration
+	// TESSTTL is how long cached TESS features are served; Kepler and K2 features never expire.
+	TESSTTL time.Duration
+	// RingSize is how many recent events each job keeps in memory for replay.
+	RingSize int
+	// ConnBuffer is each subscriber's event buffer; a subscriber that falls this far behind is
+	// disconnected.
+	ConnBuffer int
+	// CoalesceInterval is how long the WebSocket stream gathers events into one frame.
 	CoalesceInterval time.Duration
-	AllowedOrigins   []string
+	// AllowedOrigins are the browser origins allowed for CORS and WebSocket upgrades; empty allows
+	// no cross-origin access.
+	AllowedOrigins []string
 }
 
+// Load reads each setting from its ANTARES_ variable through getenv, using the default when the
+// variable is unset. Every malformed or out-of-range value is reported in one joined error, in
+// which case the returned Config must not be used.
 func Load(getenv func(string) string) (Config, error) {
 	var errs []error
 

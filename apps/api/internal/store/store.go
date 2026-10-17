@@ -1,3 +1,5 @@
+// Package store opens and migrates the SQLite database and stores resolved targets and their
+// aliases.
 package store
 
 import (
@@ -14,17 +16,25 @@ import (
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
+// TimeLayout is the fixed-width UTC layout of every stored timestamp. Fixed width makes text
+// comparison in SQL chronological, which the expiry queries rely on.
 const TimeLayout = "2006-01-02T15:04:05.000000000Z"
 
+// FormatTime renders t in UTC with TimeLayout.
 func FormatTime(t time.Time) string { return t.UTC().Format(TimeLayout) }
 
+// ParseTime parses a timestamp written by FormatTime.
 func ParseTime(s string) (time.Time, error) { return time.Parse(TimeLayout, s) }
 
+// NullTime returns FormatTime(t) as a valid sql.NullString.
 func NullTime(t time.Time) sql.NullString { return sql.NullString{String: FormatTime(t), Valid: true} }
 
 // NullString maps the empty string to NULL.
 func NullString(s string) sql.NullString { return sql.NullString{String: s, Valid: s != ""} }
 
+// Open opens (creating if needed) the SQLite database at path with WAL, a 5 s busy timeout and
+// foreign keys enabled, and checks that it is reachable. The caller must Close it.
+//
 // _txlock=immediate makes every transaction take the write lock up front, so a
 // read-then-write transaction cannot fail with SQLITE_BUSY_SNAPSHOT under WAL.
 func Open(path string) (*sql.DB, error) {
@@ -41,6 +51,8 @@ func Open(path string) (*sql.DB, error) {
 	return db, nil
 }
 
+// Migrate applies, in file-name order, each embedded migration not yet recorded in
+// schema_migrations, one transaction per file. It is safe to run on every start.
 func Migrate(ctx context.Context, db *sql.DB) error {
 	if _, err := db.ExecContext(ctx,
 		`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {

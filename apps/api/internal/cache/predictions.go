@@ -12,6 +12,8 @@ import (
 	"antares/api/internal/store"
 )
 
+// PredictionEntry is one cached scoring of a feature set by one model run. TargetID is nil for rows
+// posted to /ml/predict, which belong to no stored target.
 type PredictionEntry struct {
 	FeaturesHash  string
 	ModelRunID    string
@@ -21,8 +23,13 @@ type PredictionEntry struct {
 	CreatedAt     time.Time
 }
 
+// PredictionCache is the prediction_cache table, keyed by FeaturesHash and model run id. The run
+// id, not Fang's library version, is the key: a run names one fixed set of trained artifacts, so it
+// alone decides the scores.
 type PredictionCache struct{ DB *sql.DB }
 
+// Get returns the cached predictions for the key; the bool reports a hit and a miss is not an
+// error.
 func (c PredictionCache) Get(ctx context.Context, featuresHash, modelRunID string) (PredictionEntry, bool, error) {
 	row, err := db.New(c.DB).GetPredictions(ctx, db.GetPredictionsParams{FeaturesHash: featuresHash, ModelRunID: modelRunID})
 	if errors.Is(err, sql.ErrNoRows) {
@@ -45,6 +52,7 @@ func (c PredictionCache) Get(ctx context.Context, featuresHash, modelRunID strin
 	return entry, true, nil
 }
 
+// Put sanitizes and stores e; for an existing key it replaces the rows and schema version only.
 func (c PredictionCache) Put(ctx context.Context, e PredictionEntry) error {
 	body, err := json.Marshal(SanitizeRows(e.Rows))
 	if err != nil {

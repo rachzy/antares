@@ -10,6 +10,9 @@ import (
 	"antares/api/internal/db"
 )
 
+// Target is a resolved star in a catalogue. CatalogID is exact within Catalog, unlike the
+// coordinates (ICRS degrees), so the pair identifies the star; Designation, e.g. "KIC 8120608", is
+// what extraction is given so the star extracted is the star resolved.
 type Target struct {
 	ID          int64
 	Catalog     string
@@ -20,8 +23,11 @@ type Target struct {
 	Designation string
 }
 
+// Targets reads and writes the targets and target_aliases tables.
 type Targets struct{ DB *sql.DB }
 
+// NormalizeAlias trims and lowercases s and removes spaces, hyphens and underscores, so
+// "Kepler-186" and "kepler 186" are one alias.
 func NormalizeAlias(s string) string {
 	var b strings.Builder
 	for _, r := range strings.ToLower(strings.TrimSpace(s)) {
@@ -33,6 +39,10 @@ func NormalizeAlias(s string) string {
 	return b.String()
 }
 
+// Upsert stores in, keyed by catalogue and catalogue id, and records its display name, designation
+// and aliases as aliases, all in one transaction. An existing target keeps its first coordinates
+// and display name and only takes the new designation; the returned Target holds the stored values
+// and ID.
 func (t Targets) Upsert(ctx context.Context, in Target, now time.Time, aliases ...string) (Target, error) {
 	tx, err := t.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -63,6 +73,8 @@ func (t Targets) Upsert(ctx context.Context, in Target, now time.Time, aliases .
 	return out, tx.Commit()
 }
 
+// ByAlias returns the target in catalog that alias (normalised) names; the bool is false, with a
+// nil error, when none does.
 func (t Targets) ByAlias(ctx context.Context, alias, catalog string) (Target, bool, error) {
 	row, err := db.New(t.DB).TargetByAlias(ctx, db.TargetByAliasParams{Alias: NormalizeAlias(alias), Catalog: catalog})
 	if errors.Is(err, sql.ErrNoRows) {
