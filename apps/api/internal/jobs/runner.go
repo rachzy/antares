@@ -15,13 +15,17 @@ import (
 	"antares/api/internal/upstream"
 )
 
+// Cancellation causes Execute sets on a job's context, so describe can tell a stall or the time
+// limit from a shutdown.
 var (
 	errStalled  = errors.New("stalled")
 	errTimedOut = errors.New("timed out")
 )
 
+// internalMessage is what clients see for unexpected failures; the details are only logged.
 const internalMessage = "internal error"
 
+// upstreamFailure records which service failed, for the client-facing message.
 type upstreamFailure struct {
 	service string
 	err     error
@@ -30,6 +34,7 @@ type upstreamFailure struct {
 func (f *upstreamFailure) Error() string { return f.service + ": " + f.err.Error() }
 func (f *upstreamFailure) Unwrap() error { return f.err }
 
+// TargetInfo is the public description of a target; RA and Dec are ICRS degrees.
 type TargetInfo struct {
 	Catalog     string  `json:"catalog"`
 	CatalogID   string  `json:"catalog_id"`
@@ -39,6 +44,8 @@ type TargetInfo struct {
 	Dec         float64 `json:"dec_deg"`
 }
 
+// Payload is a job's request, stored as Job.Request. RunID is the model run picked at submission
+// and StarID labels the prediction rows; both only matter to analyze jobs.
 type Payload struct {
 	Target   TargetInfo          `json:"target"`
 	TargetID int64               `json:"target_id"`
@@ -47,6 +54,8 @@ type Payload struct {
 	StarID   string              `json:"star_id,omitempty"`
 }
 
+// Result is a job's output, also returned directly on a cache hit. Cached reports that the features
+// came from the cache; the model fields are empty for extract jobs.
 type Result struct {
 	Target        TargetInfo       `json:"target"`
 	Cached        bool             `json:"cached"`
@@ -57,6 +66,9 @@ type Result struct {
 	Predictions   []map[string]any `json:"predictions,omitempty"`
 }
 
+// Runner executes jobs: it extracts features with Shaula and caches them, then for analyze jobs
+// scores them with Fang and caches the predictions, publishing progress to the job's room.
+// ShaulaVersion supplies the version to cache under when an extraction does not report one.
 type Runner struct {
 	Jobs          Store
 	Features      cache.FeatureCache
@@ -80,10 +92,13 @@ type execution struct {
 	last  atomic.Int64
 }
 
+// touch uses the wall clock, not Runner.Clock, because watchStall measures real time.
 func (e *execution) touch() { e.last.Store(time.Now().UnixNano()) }
 
 func (e *execution) record(ev hub.Event, stage, message string) {
 	e.touch()
+	// Background: a milestone is bookkeeping for history replay and must be written even after the
+	// job's context is cancelled.
 	if err := e.r.Jobs.AddMilestone(context.Background(), e.jobID, int(ev.Seq), stage, message, ev.At); err != nil {
 		e.r.Log.Warn("persist milestone", "job", e.jobID, "error", err)
 	}
@@ -96,6 +111,8 @@ func (e *execution) state(stage, message string) {
 }
 
 func (e *execution) onProgress(p upstream.Progress) {
+	// Shaula's own "done" is not relayed: the job is not done until the features are cached and,
+	// for analyze, scored. The result event marks the end.
 	if p.Stage == "done" {
 		return
 	}
@@ -104,6 +121,7 @@ func (e *execution) onProgress(p upstream.Progress) {
 		fraction = nil
 	}
 	ev := e.room.Append(hub.Progress(p.Stage, p.Message, fraction))
+	// Only a stage change becomes a milestone; progress within a stage just resets the stall timer.
 	if p.Stage != e.stage {
 		e.stage = p.Stage
 		e.record(ev, p.Stage, p.Message)
@@ -112,6 +130,8 @@ func (e *execution) onProgress(p upstream.Progress) {
 	e.touch()
 }
 
+// watchStall cancels the job with errStalled once no event has arrived for stall. It checks four
+// times per stall period, so the cut-off is between stall and 1.25 × stall.
 func (e *execution) watchStall(ctx context.Context, cancel context.CancelCauseFunc, stall time.Duration) {
 	interval := max(stall/4, time.Millisecond)
 	ticker := time.NewTicker(interval)
@@ -129,10 +149,16 @@ func (e *execution) watchStall(ctx context.Context, cancel context.CancelCauseFu
 	}
 }
 
+// Execute runs one job and closes its room. It returns quietly if the job is no longer queued. The
+// job is bounded by JobTimeout overall and StallTimeout between events, and is interrupted when
+// parent is cancelled; any failure is recorded on the job and published as an error event with a
+// client-safe message.
 func (r *Runner) Execute(parent context.Context, jobID string) {
 	room := r.Hub.Room(jobID)
 	defer room.Close()
 
+	// Three things can cancel ctx: the parent at shutdown, watchStall (errStalled) and the time
+	// limit (errTimedOut). describe reads context.Cause to tell them apart.
 	ctx, cancel := context.WithCancelCause(parent)
 	defer cancel(nil)
 	ctx, stop := context.WithTimeoutCause(ctx, r.JobTimeout, errTimedOut)
@@ -167,6 +193,7 @@ func (r *Runner) Execute(parent context.Context, jobID string) {
 		r.fail(jobID, room, r.internal(jobID, fmt.Errorf("encode result: %w", err)))
 		return
 	}
+	// The work succeeded, so record it even if the deadline passed meanwhile.
 	if err := r.Jobs.Finish(context.WithoutCancel(ctx), jobID, StateDone, payload, "", r.Clock()); err != nil {
 		r.fail(jobID, room, r.internal(jobID, fmt.Errorf("save result: %w", err)))
 		return
@@ -174,6 +201,7 @@ func (r *Runner) Execute(parent context.Context, jobID string) {
 	room.Append(hub.Result(payload))
 }
 
+// Drop marks a queued job as dropped with message, publishes it and closes the room.
 func (r *Runner) Drop(ctx context.Context, jobID, message string) {
 	room := r.Hub.Room(jobID)
 	if err := r.Jobs.Finish(ctx, jobID, StateDropped, nil, message, r.Clock()); err != nil {
@@ -183,6 +211,7 @@ func (r *Runner) Drop(ctx context.Context, jobID, message string) {
 	room.Close()
 }
 
+// fail uses Background so the failure is recorded even when the job's own context is what failed.
 func (r *Runner) fail(jobID string, room *hub.Room, message string) {
 	if err := r.Jobs.Finish(context.Background(), jobID, StateFailed, nil, message, r.Clock()); err != nil {
 		r.Log.Error("record failure", "job", jobID, "error", err)
@@ -190,6 +219,9 @@ func (r *Runner) fail(jobID string, room *hub.Room, message string) {
 	room.Append(hub.Failure(message))
 }
 
+// describe turns a job error into the message clients see. Client-caused upstream errors keep the
+// service's own message; an unavailable service gets a generic one; anything else is logged and
+// replaced by internalMessage, so internals never leak.
 func (r *Runner) describe(ctx context.Context, jobID string, err error) string {
 	cause := context.Cause(ctx)
 	switch {
@@ -258,6 +290,8 @@ func (r *Runner) work(ctx context.Context, e *execution, job Job) (Result, error
 	}
 	rows := cache.SanitizeRows(set.Rows)
 	now := r.Clock()
+	// Cache the features before scoring, so a later prediction failure still leaves them for the
+	// next request.
 	if err := r.Features.Put(ctx, cache.FeatureEntry{
 		TargetID:      p.TargetID,
 		ParamsHash:    p.Params.Hash(),

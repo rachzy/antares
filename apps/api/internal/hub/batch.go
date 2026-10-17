@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+// Batches streams sub as frames: Replay as one batch, then live events, where each batch takes
+// whatever arrives within interval of its first event. Coalescing cuts per-frame overhead on chatty
+// progress streams while delaying no event by more than interval. The channel closes after the last
+// batch once sub.C closes, or as soon as ctx is done, discarding pending events.
 func Batches(ctx context.Context, sub *Subscription, interval time.Duration) <-chan []Event {
 	out := make(chan []Event)
 	go func() {

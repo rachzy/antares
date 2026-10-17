@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// Room is one job's event stream: a ring of recent events plus live subscribers. It is safe for
+// concurrent use. Presence, whether anyone is watching the job, is derived from open subscriptions
+// and the time of the last Touch or disconnect.
 type Room struct {
 	mu       sync.Mutex
 	clock    func() time.Time
@@ -31,6 +34,9 @@ func newRoom(ringSize, connBuf int, clock func() time.Time) *Room {
 	}
 }
 
+// Append stamps ev with the next Seq (and At, if unset), keeps it in the ring and offers it to
+// every subscriber, returning the stamped event. After Close it does nothing and returns the zero
+// Event.
 func (r *Room) Append(ev Event) Event {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -49,6 +55,8 @@ func (r *Room) Append(ev Event) Event {
 		r.ring[r.start] = ev
 		r.start = (r.start + 1) % len(r.ring)
 	}
+	// Never block the job on a slow client: drop a subscriber whose buffer is full. It sees C close
+	// with Dropped true and can reconnect with since to resume from the ring.
 	for sub := range r.subs {
 		select {
 		case sub.ch <- ev:
@@ -59,6 +67,8 @@ func (r *Room) Append(ev Event) Event {
 	return ev
 }
 
+// Close ends the stream: subscribers still read what is buffered, then C closes, and later Appends
+// are ignored. It is idempotent.
 func (r *Room) Close() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -75,36 +85,48 @@ func (r *Room) Close() {
 	}
 }
 
+// Closed reports whether Close was called.
 func (r *Room) Closed() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.closed
 }
 
+// ClosedAt returns when the room was closed and whether it is.
 func (r *Room) ClosedAt() (time.Time, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.closedAt, r.closed
 }
 
+// LastSeq returns the Seq of the newest event, or 0 if there is none.
 func (r *Room) LastSeq() uint64 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.nextSeq - 1
 }
 
+// Touch records that someone is watching now, such as a status poll, starting a new grace window
+// for Present.
 func (r *Room) Touch() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.lastSeen = r.clock()
 }
 
+// Present reports whether anyone is watching: a subscriber is connected, or the last Touch,
+// disconnect or the room's creation was at most grace ago. The grace covers clients that poll
+// instead of holding a WebSocket, and brief reconnects.
 func (r *Room) Present(grace time.Duration) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.conns > 0 || r.clock().Sub(r.lastSeen) <= grace
 }
 
+// Subscribe returns a subscription whose Replay holds the buffered events after since and whose C
+// then delivers live ones. The snapshot and the registration happen under one lock, so no event
+// falls between Replay and C or appears in both. On a closed room C is already closed. The caller
+// must Cancel the subscription.
 func (r *Room) Subscribe(since uint64) *Subscription {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -150,6 +172,10 @@ func (r *Room) dropLocked(sub *Subscription) {
 	}
 }
 
+// Subscription is one subscriber of a Room. Replay holds the buffered events newer than since,
+// oldest first; Truncated reports that some of the events after since have already left the ring. C
+// delivers the events after Replay and is closed when the room closes, when the subscriber is
+// dropped for falling behind, or on Cancel.
 type Subscription struct {
 	Replay    []Event
 	Truncated bool
@@ -162,12 +188,15 @@ type Subscription struct {
 	dropped  bool
 }
 
+// Dropped reports whether C was closed because the subscriber's buffer overflowed.
 func (s *Subscription) Dropped() bool {
 	s.room.mu.Lock()
 	defer s.room.mu.Unlock()
 	return s.dropped
 }
 
+// Cancel detaches the subscription and closes C. It is idempotent and counts as a disconnect for
+// presence.
 func (s *Subscription) Cancel() {
 	s.room.mu.Lock()
 	defer s.room.mu.Unlock()
