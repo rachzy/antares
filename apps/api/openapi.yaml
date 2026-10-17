@@ -1,0 +1,845 @@
+openapi: 3.1.0
+info:
+  title: Antares API
+  version: 0.1.0
+  description: |
+    The public surface of Antares. It resolves stars, answers from caches when it can, queues
+    feature extractions otherwise, streams their progress over WebSockets, and calls the private
+    Shaula (feature extraction) and Fang (classifier) services.
+
+    Request bodies are JSON and strict: unknown fields, trailing data and wrong types are a `400`,
+    and bodies over 1 MiB are a `413`. Every error uses the same envelope,
+    `{"error":{"code","message"}}`. Browsers from `ANTARES_ALLOWED_ORIGINS` get CORS headers and
+    preflight `OPTIONS` answers (`204`) on every path.
+
+    The WebSocket protocol of `GET /subscription/{token}` is described in the README.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+tags:
+  - name: health
+  - name: targets
+  - name: jobs
+    description: Feature extraction and analysis, answered from the cache or queued.
+  - name: ml
+  - name: docs
+
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      operationId: health
+      summary: Liveness and readiness
+      description: Always `200` while the process is up; `ready` turns `true` once both Shaula and Fang have answered.
+      responses:
+        '200':
+          description: The API is up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              examples:
+                ready:
+                  value:
+                    {
+                      status: ok,
+                      ready: true,
+                      shaula_version: 0.0.1a0,
+                      fang_version: 0.0.1a0,
+                    }
+                starting:
+                  value:
+                    {
+                      status: ok,
+                      ready: false,
+                      shaula_version: 0.0.1a0,
+                      fang_version: unknown,
+                    }
+
+  /targets/resolve:
+    post:
+      tags: [targets]
+      operationId: resolveTarget
+      summary: Resolve a star by name or position
+      description: |
+        Send either `query`, or both `ra_deg` and `dec_deg`, never both. A position returns the
+        nearest star with light curves within 4 arcseconds; an empty patch of sky is a `404`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRequest'
+            examples:
+              byName:
+                value: { query: Kepler-186f, mission: Kepler }
+              byPosition:
+                value: { ra_deg: 298.65272, dec_deg: 43.95502, mission: Kepler }
+      responses:
+        '200':
+          description: The resolved star.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Target'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /ml/runs:
+    get:
+      tags: [ml]
+      operationId: listRuns
+      summary: List the servable model runs
+      description: Newest first. The first run is the default for `/analyze` and `/ml/predict`.
+      responses:
+        '200':
+          description: The model runs, possibly none.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runs]
+                properties:
+                  runs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Run'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /ml/predict:
+    post:
+      tags: [ml]
+      operationId: predict
+      summary: Score feature rows with a model run
+      description: Predictions are cached per feature rows and model run; `cached` says whether this answer came from the cache.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictRequest'
+      responses:
+        '200':
+          description: The predictions, one per row.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictResult'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /pipeline/extract:
+    post:
+      tags: [jobs]
+      operationId: extract
+      summary: Extract the features of a star
+      description: |
+        Answers `200` from the feature cache, otherwise queues a job and answers `202` with a
+        subscription token. Identical requests made while one is running share a single job; each
+        caller still gets its own token. `run_id` and `star_id` are accepted but only used by `/analyze`.
+      requestBody:
+        $ref: '#/components/requestBodies/Extract'
+      responses:
+        '200':
+          $ref: '#/components/responses/Done'
+        '202':
+          $ref: '#/components/responses/Queued'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/UnavailableOrBusy'
+
+  /analyze:
+    post:
+      tags: [jobs]
+      operationId: analyze
+      summary: Extract the features of a star and score them
+      description: |
+        Like `/pipeline/extract`, then scores the features with `run_id` (default: the newest run).
+        The result also carries `model_run_id`, `schema_version` and `predictions`. A `503` with
+        code `unavailable` can also mean that no model has been trained yet.
+      requestBody:
+        $ref: '#/components/requestBodies/Extract'
+      responses:
+        '200':
+          $ref: '#/components/responses/Done'
+        '202':
+          $ref: '#/components/responses/Queued'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/UnavailableOrBusy'
+
+  /subscription/{token}:
+    get:
+      tags: [jobs]
+      operationId: subscription
+      summary: Snapshot or event stream of a job
+      description: |
+        Without an `Upgrade: websocket` header this returns a JSON snapshot of the job. Polling it
+        counts as presence, so it keeps a queued job alive.
+
+        With `Upgrade: websocket` the request switches to the event stream described in the README
+        (frames `{"events":[...]}`, replay with `since`). Origins outside `ANTARES_ALLOWED_ORIGINS`
+        (other than the API's own host) are refused with a plain-text `403`.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: The subscription token returned by `/pipeline/extract` or `/analyze`. It is the credential for the job.
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_-]{43}$'
+          example: q3Zr8yN1vXo2bL5cT9hW0eK7mJ4sD6aF1gP8uR3iY0E
+        - name: since
+          in: query
+          required: false
+          description: WebSocket only (ignored by the snapshot). Replay only events with a `seq` greater than this; send the last `seq` you received when reconnecting.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            default: 0
+        - name: Upgrade
+          in: header
+          required: false
+          description: '`websocket` switches to the event stream.'
+          schema:
+            type: string
+            enum: [websocket]
+      responses:
+        '101':
+          description: Switched to the WebSocket event stream (see the README).
+        '200':
+          description: The job snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionView'
+              examples:
+                queued:
+                  value:
+                    kind: analyze
+                    state: queued
+                    position: 2
+                    milestones:
+                      - {
+                          seq: 1,
+                          stage: queued,
+                          message: Waiting for a free slot,
+                          at: '2026-10-17T12:00:00Z',
+                        }
+                    last_seq: 1
+                done:
+                  value:
+                    kind: extract
+                    state: done
+                    result:
+                      target:
+                        {
+                          catalog: KIC,
+                          catalog_id: '8120608',
+                          display_name: Kepler-186,
+                          designation: KIC 8120608,
+                          ra_deg: 298.65272,
+                          dec_deg: 43.95502,
+                        }
+                      cached: false
+                      shaula_version: 0.0.1a0
+                      features:
+                        [{ period_days: 129.9, MES: 12.5, vshape_metric: null }]
+                    milestones:
+                      - {
+                          seq: 1,
+                          stage: queued,
+                          message: Waiting for a free slot,
+                          at: '2026-10-17T12:00:00Z',
+                        }
+                      - {
+                          seq: 2,
+                          stage: running,
+                          message: Started,
+                          at: '2026-10-17T12:00:05Z',
+                        }
+                    last_seq: 3
+                failed:
+                  value:
+                    kind: extract
+                    state: failed
+                    error: interrupted by an API restart; resubmit
+                    milestones:
+                      - {
+                          seq: 1,
+                          stage: queued,
+                          message: Waiting for a free slot,
+                          at: '2026-10-17T12:00:00Z',
+                        }
+                    last_seq: 2
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '403':
+          description: WebSocket only. The `Origin` is not allowed.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+
+  /openapi.yaml:
+    get:
+      tags: [docs]
+      operationId: openapi
+      summary: This specification
+      responses:
+        '200':
+          description: The OpenAPI document.
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /docs:
+    get:
+      tags: [docs]
+      operationId: docs
+      summary: Swagger UI for this specification
+      responses:
+        '200':
+          description: An HTML page that loads Swagger UI from a CDN.
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                [
+                  invalid_request,
+                  not_found,
+                  too_large,
+                  unprocessable,
+                  unavailable,
+                  busy,
+                  internal,
+                ]
+            message:
+              type: string
+              description: Human-readable; for `internal` it is always the generic `internal error`.
+
+    Health:
+      type: object
+      required: [status, ready, shaula_version, fang_version]
+      properties:
+        status:
+          type: string
+          const: ok
+        ready:
+          type: boolean
+          description: '`false` until both Shaula and Fang have answered once.'
+        shaula_version:
+          type: string
+          description: '`unknown` until Shaula has answered.'
+        fang_version:
+          type: string
+          description: '`unknown` until Fang has answered.'
+
+    Mission:
+      type: string
+      description: '`Kepler`, `K2` or `TESS`, case-insensitive. Empty or omitted means `Kepler`.'
+      default: Kepler
+      examples: [Kepler, K2, TESS]
+
+    RA:
+      type: number
+      format: double
+      minimum: 0
+      exclusiveMaximum: 360
+      description: Right ascension in degrees, in [0, 360).
+
+    Dec:
+      type: number
+      format: double
+      minimum: -90
+      maximum: 90
+      description: Declination in degrees, in [-90, 90].
+
+    Query:
+      type: string
+      maxLength: 200
+      description: A star name or designation, at most 200 characters after trimming. Mutually exclusive with `ra_deg`/`dec_deg`.
+
+    ResolveRequest:
+      type: object
+      additionalProperties: false
+      description: Send `query`, or both `ra_deg` and `dec_deg`.
+      properties:
+        query:
+          $ref: '#/components/schemas/Query'
+        mission:
+          $ref: '#/components/schemas/Mission'
+        ra_deg:
+          $ref: '#/components/schemas/RA'
+        dec_deg:
+          $ref: '#/components/schemas/Dec'
+
+    ExtractRequest:
+      type: object
+      additionalProperties: false
+      description: Send `query`, or both `ra_deg` and `dec_deg`. Everything else is optional.
+      properties:
+        query:
+          $ref: '#/components/schemas/Query'
+        ra_deg:
+          $ref: '#/components/schemas/RA'
+        dec_deg:
+          $ref: '#/components/schemas/Dec'
+        mission:
+          $ref: '#/components/schemas/Mission'
+        sigma_clip:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+          maximum: 50
+          default: 5
+        download_all:
+          type: boolean
+          default: false
+        author:
+          type: string
+          maxLength: 64
+          description: Light-curve author filter, at most 64 bytes after trimming.
+        exptime:
+          type: string
+          maxLength: 32
+          description: Exposure-time filter, at most 32 bytes after trimming.
+        use_tls:
+          type: boolean
+          default: false
+        mask_eclipses:
+          type: boolean
+          default: false
+        force_refresh:
+          type: boolean
+          default: false
+          description: Skip the feature cache and always queue a job.
+        run_id:
+          type: string
+          description: '`/analyze` only: the model run to score with (default: the newest).'
+        star_id:
+          type: string
+          maxLength: 200
+          description: '`/analyze` only: copied into every prediction row (default `unknown`).'
+
+    PredictRequest:
+      type: object
+      additionalProperties: false
+      required: [features]
+      properties:
+        features:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/FeatureRow'
+        run_id:
+          type: string
+          description: 'The model run to score with (default: the newest).'
+        star_id:
+          type: string
+          maxLength: 200
+          description: Copied into every prediction row (default `unknown`).
+      example:
+        features: [{ period_days: 129.9, MES: 12.5, vshape_metric: null }]
+        star_id: KIC 8120608
+
+    FeatureRow:
+      type: object
+      minProperties: 1
+      description: One feature row, keyed by the names in Fang's `schema.yaml`. Missing values are `null`.
+      additionalProperties: true
+      example: { period_days: 129.9, MES: 12.5, vshape_metric: null }
+
+    PredictionRow:
+      type: object
+      description: A feature row with the model's outputs and `star_id` added.
+      additionalProperties: true
+      example:
+        {
+          period_days: 129.9,
+          MES: 12.5,
+          vshape_metric: null,
+          prob_stack: 0.71,
+          model_run_id: '2026-09-01T12-00-00',
+          star_id: KIC 8120608,
+        }
+
+    Target:
+      type: object
+      required:
+        [catalog, catalog_id, display_name, designation, ra_deg, dec_deg]
+      properties:
+        catalog:
+          type: string
+          examples: [KIC, EPIC, TIC]
+        catalog_id:
+          type: string
+        display_name:
+          type: string
+        designation:
+          type: string
+        ra_deg:
+          type: number
+          format: double
+        dec_deg:
+          type: number
+          format: double
+      example:
+        {
+          catalog: KIC,
+          catalog_id: '8120608',
+          display_name: Kepler-186,
+          designation: KIC 8120608,
+          ra_deg: 298.65272,
+          dec_deg: 43.95502,
+        }
+
+    Run:
+      type: object
+      required: [run_id, created_at, schema_version, selected_model, threshold]
+      properties:
+        run_id:
+          type: string
+        created_at:
+          type: string
+        schema_version:
+          type: integer
+        selected_model:
+          type: string
+        threshold:
+          type: number
+          format: double
+      example:
+        {
+          run_id: '2026-09-01T12-00-00',
+          created_at: '2026-09-01T12:00:00Z',
+          schema_version: 1,
+          selected_model: stack,
+          threshold: 0.5,
+        }
+
+    PredictResult:
+      type: object
+      required: [model_run_id, schema_version, predictions, cached]
+      properties:
+        model_run_id:
+          type: string
+        schema_version:
+          type: integer
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionRow'
+        cached:
+          type: boolean
+
+    Result:
+      type: object
+      description: The outcome of an extraction; the last three fields appear only for `/analyze`.
+      required: [target, cached, shaula_version, features]
+      properties:
+        target:
+          $ref: '#/components/schemas/Target'
+        cached:
+          type: boolean
+          description: '`true` when served from the cache without running a job.'
+        shaula_version:
+          type: string
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureRow'
+        model_run_id:
+          type: string
+        schema_version:
+          type: integer
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionRow'
+
+    DoneBody:
+      type: object
+      required: [status, result]
+      properties:
+        status:
+          type: string
+          const: done
+        result:
+          $ref: '#/components/schemas/Result'
+
+    QueuedBody:
+      type: object
+      required: [status, token, subscription_path, position]
+      properties:
+        status:
+          type: string
+          enum: [queued, running]
+          description: '`running` when `position` is 0.'
+        token:
+          type: string
+          description: The subscription credential. It is stored hashed, valid for `ANTARES_TOKEN_RETENTION` and never logged.
+        subscription_path:
+          type: string
+          description: '`/subscription/<token>`.'
+        position:
+          type: integer
+          minimum: 0
+          description: Place in the queue; 0 means the job is running.
+
+    Milestone:
+      type: object
+      required: [seq, stage, message, at]
+      properties:
+        seq:
+          type: integer
+        stage:
+          type: string
+        message:
+          type: string
+        at:
+          type: string
+          format: date-time
+
+    SubscriptionView:
+      type: object
+      required: [kind, state, milestones, last_seq]
+      properties:
+        kind:
+          type: string
+          enum: [extract, analyze]
+        state:
+          type: string
+          enum: [queued, running, done, failed, dropped]
+        position:
+          type: integer
+          minimum: 1
+          description: Present only while queued.
+        error:
+          type: string
+          description: Present only for a failed or dropped job.
+        result:
+          $ref: '#/components/schemas/Result'
+          description: Present only once the job is done.
+        milestones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Milestone'
+        last_seq:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The `seq` of the latest event; pass it as `since` when opening the stream.
+
+  requestBodies:
+    Extract:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExtractRequest'
+          examples:
+            byName:
+              value: { query: Kepler-186, mission: Kepler }
+            byPosition:
+              value:
+                {
+                  ra_deg: 298.65272,
+                  dec_deg: 43.95502,
+                  sigma_clip: 4,
+                  star_id: KIC 8120608,
+                }
+
+  headers:
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema:
+        type: integer
+        example: 30
+
+  responses:
+    Done:
+      description: Answered from the cache; no job ran.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DoneBody'
+          example:
+            status: done
+            result:
+              target:
+                {
+                  catalog: KIC,
+                  catalog_id: '8120608',
+                  display_name: Kepler-186,
+                  designation: KIC 8120608,
+                  ra_deg: 298.65272,
+                  dec_deg: 43.95502,
+                }
+              cached: true
+              shaula_version: 0.0.1a0
+              features: [{ period_days: 129.9, MES: 12.5, vshape_metric: null }]
+    Queued:
+      description: A job was queued or joined. Follow it on `subscription_path`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/QueuedBody'
+          example:
+            status: queued
+            token: q3Zr8yN1vXo2bL5cT9hW0eK7mJ4sD6aF1gP8uR3iY0E
+            subscription_path: /subscription/q3Zr8yN1vXo2bL5cT9hW0eK7mJ4sD6aF1gP8uR3iY0E
+            position: 1
+    InvalidRequest:
+      description: Bad input, malformed or non-strict JSON (code `invalid_request`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            {
+              error:
+                {
+                  code: invalid_request,
+                  message: sigma_clip must be greater than 0 and at most 50,
+                },
+            }
+    NotFound:
+      description: Unknown or expired token, unknown model run, or a star that cannot be resolved (code `not_found`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            {
+              error:
+                { code: not_found, message: unknown or expired subscription },
+            }
+    TooLarge:
+      description: The body is larger than 1 MiB (code `too_large`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            {
+              error:
+                { code: too_large, message: request body is larger than 1 MiB },
+            }
+    Unprocessable:
+      description: The pipeline could not process the star, for example it has no light curves (code `unprocessable`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            { error: { code: unprocessable, message: no light curves found } }
+    Unavailable:
+      description: An upstream service is unreachable or slow, or no model is trained yet (code `unavailable`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            {
+              error:
+                {
+                  code: unavailable,
+                  message: the model service is unavailable; try again later,
+                },
+            }
+    UnavailableOrBusy:
+      description: Code `unavailable` as elsewhere, or code `busy` when the queue is full; honour `Retry-After` (only sent with `busy`).
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            busy:
+              value:
+                {
+                  error:
+                    {
+                      code: busy,
+                      message: the queue is full; try again in a few minutes,
+                    },
+                }
+            unavailable:
+              value:
+                {
+                  error:
+                    {
+                      code: unavailable,
+                      message: the pipeline service has not been reached yet; try again shortly,
+                    },
+                }
+    Internal:
+      description: Unexpected failure (code `internal`); the message is always generic.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: { error: { code: internal, message: internal error } }
