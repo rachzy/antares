@@ -8,6 +8,8 @@ The only public surface of Antares. It resolves stars, answers from caches when 
 npx nx serve api          # go run; npm run dev:api stores the database in .data/api
 npx nx test api           # go test -race ./...
 npx nx run api:docker-build
+npx nx run api:sqlc       # regenerate internal/db after editing internal/store/queries or migrations
+npx nx run api:sqlc-check # fail if the committed internal/db is stale
 ```
 
 The API starts even when Shaula or Fang is unreachable; `/healthz` then reports `ready: false` until both have answered.

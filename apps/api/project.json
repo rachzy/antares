@@ -42,6 +42,20 @@
         "command": "test -z \"$(gofmt -l .)\" && go vet ./..."
       }
     },
+    "sqlc": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/api",
+        "command": "go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate"
+      }
+    },
+    "sqlc-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/api",
+        "command": "go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 diff"
+      }
+    },
     "docker-build": {
       "executor": "nx:run-commands",
       "options": {
