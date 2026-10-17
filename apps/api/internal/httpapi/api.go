@@ -28,15 +28,42 @@ type API struct {
 	log *slog.Logger
 }
 
+type Route struct {
+	Method  string
+	Pattern string
+}
+
+type route struct {
+	Route
+	handle func(*API, http.ResponseWriter, *http.Request)
+}
+
+var routes = []route{
+	{Route{"GET", "/healthz"}, (*API).health},
+	{Route{"POST", "/targets/resolve"}, (*API).resolve},
+	{Route{"GET", "/ml/runs"}, (*API).runs},
+	{Route{"POST", "/ml/predict"}, (*API).predict},
+	{Route{"POST", "/pipeline/extract"}, (*API).extract},
+	{Route{"POST", "/analyze"}, (*API).analyze},
+	{Route{"GET", "/subscription/{token}"}, (*API).subscription},
+	{Route{"GET", "/openapi.yaml"}, (*API).spec},
+	{Route{"GET", "/docs"}, (*API).docs},
+}
+
+// Routes lists every registered method and pattern.
+func Routes() []Route {
+	out := make([]Route, len(routes))
+	for i, r := range routes {
+		out[i] = r.Route
+	}
+	return out
+}
+
 func New(be Backend, cfg config.Config, log *slog.Logger) http.Handler {
 	a := &API{be: be, cfg: cfg, log: log}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", a.health)
-	mux.HandleFunc("POST /targets/resolve", a.resolve)
-	mux.HandleFunc("GET /ml/runs", a.runs)
-	mux.HandleFunc("POST /ml/predict", a.predict)
-	mux.HandleFunc("POST /pipeline/extract", a.extract)
-	mux.HandleFunc("POST /analyze", a.analyze)
-	mux.HandleFunc("GET /subscription/{token}", a.subscription)
+	for _, r := range routes {
+		mux.HandleFunc(r.Method+" "+r.Pattern, func(w http.ResponseWriter, req *http.Request) { r.handle(a, w, req) })
+	}
 	return a.recoverer(a.cors(a.logging(mux)))
 }
