@@ -1,3 +1,5 @@
+// Package httpapi is the HTTP and WebSocket transport for the service layer. Errors are JSON
+// {"error": {"code", "message"}}; internal details are logged, never returned.
 package httpapi
 
 import (
@@ -11,6 +13,7 @@ import (
 	"antares/api/internal/upstream"
 )
 
+// Backend is what the handlers need from *service.Service, so tests can substitute it.
 type Backend interface {
 	Resolve(ctx context.Context, in service.ResolveInput) (store.Target, error)
 	Extract(ctx context.Context, in service.ExtractInput) (service.Outcome, error)
@@ -22,12 +25,14 @@ type Backend interface {
 	Versions() (shaula, fang string)
 }
 
+// API holds the handlers' dependencies; New builds it.
 type API struct {
 	be  Backend
 	cfg config.Config
 	log *slog.Logger
 }
 
+// Route is a method and a net/http ServeMux pattern.
 type Route struct {
 	Method  string
 	Pattern string
@@ -59,6 +64,8 @@ func Routes() []Route {
 	return out
 }
 
+// New returns the API's handler, with panic recovery, CORS for cfg.AllowedOrigins and request
+// logging.
 func New(be Backend, cfg config.Config, log *slog.Logger) http.Handler {
 	a := &API{be: be, cfg: cfg, log: log}
 	mux := http.NewServeMux()

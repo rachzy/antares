@@ -18,6 +18,9 @@ import (
 	"antares/api/internal/upstream"
 )
 
+// ExtractInput is a request to extract, and for Analyze also score, a star's features. A nil
+// SigmaClip means 5. ForceRefresh skips the caches and always queues a job. RunID and StarID only
+// affect Analyze.
 type ExtractInput struct {
 	Query        string
 	RA           *float64
@@ -34,16 +37,21 @@ type ExtractInput struct {
 	StarID       string
 }
 
+// Outcome is either a finished Result, from the cache, or a queued job: the caller's Token and its
+// queue Position, 0 meaning it has a slot already.
 type Outcome struct {
 	Result   *jobs.Result
 	Token    string
 	Position int
 }
 
+// Extract returns cached features for the star and parameters, or queues an extract job.
 func (s *Service) Extract(ctx context.Context, in ExtractInput) (Outcome, error) {
 	return s.submit(ctx, jobs.KindExtract, in)
 }
 
+// Analyze is Extract plus scoring with a model run, the newest unless RunID is set. On a feature
+// cache hit it scores synchronously.
 func (s *Service) Analyze(ctx context.Context, in ExtractInput) (Outcome, error) {
 	return s.submit(ctx, jobs.KindAnalyze, in)
 }
@@ -114,6 +122,10 @@ func (s *Service) submit(ctx context.Context, kind string, in ExtractInput) (Out
 	return s.enqueue(ctx, kind, target, params, version, run.RunID, in.StarID)
 }
 
+// dedupeKey identifies equivalent work: kind, target, extraction parameters, Shaula version and
+// model run, so a job started before an upgrade is not joined after it. star_id is left out because
+// it only labels the output rows; a caller joining a running job gets the first submitter's star_id
+// in its predictions.
 func dedupeKey(kind string, targetID int64, paramsHash, version, runID string) string {
 	sum := sha256.Sum256([]byte(strings.Join([]string{kind, strconv.FormatInt(targetID, 10), paramsHash, version, runID}, "|")))
 	return hex.EncodeToString(sum[:])
@@ -135,6 +147,8 @@ func (s *Service) enqueue(ctx context.Context, kind string, target store.Target,
 	}
 
 	room := s.Hub.Room(joined.Job.ID)
+	// Count the submitter as present before enqueueing: promotion drops jobs nobody is watching,
+	// and the client has not polled or connected yet.
 	room.Touch()
 	if !joined.Created {
 		position, _ := s.Sched.Position(joined.Job.ID)
@@ -148,6 +162,7 @@ func (s *Service) enqueue(ctx context.Context, kind string, target store.Target,
 	position, err := s.Sched.Enqueue(joined.Job.ID)
 	if errors.Is(err, jobs.ErrQueueFull) {
 		message := "the queue was full"
+		// Record the rejection even if the client has gone.
 		if ferr := s.Jobs.Finish(context.WithoutCancel(ctx), joined.Job.ID, jobs.StateDropped, nil, message, s.Clock()); ferr != nil {
 			s.log().Error("record rejected job", "job", joined.Job.ID, "error", ferr)
 		}
@@ -168,6 +183,8 @@ type scored struct {
 	cached bool
 }
 
+// score serves predictions from the cache or asks Fang and caches them. One cache entry serves
+// every star id, so cached rows get the caller's own star_id.
 func (s *Service) score(ctx context.Context, rows []map[string]any, featuresHash string, run upstream.Run, starID string, targetID *int64) (scored, error) {
 	entry, hit, err := s.Predictions.Get(ctx, featuresHash, run.RunID)
 	if err != nil {
@@ -209,6 +226,7 @@ func withStarID(rows []map[string]any, starID string) []map[string]any {
 	return out
 }
 
+// Runs lists Fang's servable model runs, newest first: run ids start with their creation time.
 func (s *Service) Runs(ctx context.Context) ([]upstream.Run, error) {
 	rctx, cancel := context.WithTimeout(ctx, listRunsTimeout)
 	defer cancel()
@@ -240,12 +258,14 @@ func (s *Service) pickRun(ctx context.Context, wanted string) (upstream.Run, err
 	return upstream.Run{}, errf(KindNotFound, "no servable model run %q", wanted)
 }
 
+// PredictInput is a request to score feature rows posted by the client.
 type PredictInput struct {
 	Rows   []map[string]any
 	RunID  string
 	StarID string
 }
 
+// PredictResult is Predict's response; Cached reports a prediction cache hit.
 type PredictResult struct {
 	ModelRunID    string           `json:"model_run_id"`
 	SchemaVersion int              `json:"schema_version"`
@@ -253,6 +273,8 @@ type PredictResult struct {
 	Cached        bool             `json:"cached"`
 }
 
+// Predict validates and sanitizes the rows, then scores them with the chosen run, reusing cached
+// predictions for identical rows.
 func (s *Service) Predict(ctx context.Context, in PredictInput) (PredictResult, error) {
 	if len(in.Rows) == 0 {
 		return PredictResult{}, errf(KindInvalid, "features must contain at least one row")

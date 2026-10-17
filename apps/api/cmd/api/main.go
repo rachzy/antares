@@ -1,3 +1,6 @@
+// Command api serves the Antares public HTTP API in front of the private Shaula and Fang gRPC
+// services. It reads its settings from ANTARES_* environment variables (see internal/config), exits
+// with status 2 on invalid configuration, and shuts down gracefully on SIGINT or SIGTERM.
 package main
 
 import (
@@ -77,6 +80,7 @@ func run(log *slog.Logger, cfg config.Config) error {
 	case <-ctx.Done():
 	}
 
+	// Stop taking requests first, then drain running jobs; both steps share one 30 s budget.
 	shutdown, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdown)

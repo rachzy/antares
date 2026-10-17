@@ -68,6 +68,7 @@ func (a *API) submit(w http.ResponseWriter, r *http.Request, call func(context.C
 		return
 	}
 	status := "queued"
+	// Position 0 means the job already has a slot.
 	if outcome.Position == 0 {
 		status = "running"
 	}

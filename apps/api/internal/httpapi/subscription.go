@@ -22,6 +22,8 @@ type frame struct {
 	Events []hub.Event `json:"events"`
 }
 
+// subscription answers a plain GET with the JSON status and a WebSocket upgrade with the event
+// stream. A malformed token is rejected before any database lookup.
 func (a *API) subscription(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	if !jobs.ValidToken(token) {
@@ -55,6 +57,9 @@ func (a *API) subscription(w http.ResponseWriter, r *http.Request) {
 	a.stream(w, r, watch)
 }
 
+// stream sends a finished job's history in one frame, or a live job's events as they come. A
+// subscriber dropped for falling behind is closed with StatusTryAgainLater, so it reconnects with
+// since.
 func (a *API) stream(w http.ResponseWriter, r *http.Request, watch *service.Watch) {
 	if watch.Sub != nil {
 		defer watch.Sub.Cancel()
@@ -108,6 +113,8 @@ func keepAlive(ctx context.Context, conn *websocket.Conn) {
 	}
 }
 
+// originHosts turns origins into the host patterns coder/websocket matches against; AllowedOrigins
+// holds full origins for CORS.
 func originHosts(origins []string) []string {
 	hosts := make([]string, 0, len(origins))
 	for _, origin := range origins {

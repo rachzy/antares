@@ -15,10 +15,18 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// Dial returns a client connection to addr without connecting yet. It uses plaintext, as the
+// services are private. The caller must Close it.
 func Dial(addr string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 }
 
+// mapError converts a gRPC error into a context error or an *Error. The caller's own context error
+// comes first, so a caller that was cancelled or timed out gets context.Canceled or
+// DeadlineExceeded, never an upstream fault. The deadline check covers a race: the deadline
+// propagates to the server, which can fail with DeadlineExceeded before ctx.Err() is set here.
+// Otherwise NotFound, InvalidArgument and FailedPrecondition keep their meaning; Unavailable, the
+// server's own DeadlineExceeded and ResourceExhausted are retryable; anything else is internal.
 func mapError(ctx context.Context, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
@@ -66,6 +74,7 @@ func fromStructs(in []*structpb.Struct) []map[string]any {
 
 type shaulaClient struct{ c shaulav1.ShaulaClient }
 
+// NewShaula returns a Shaula client over cc.
 func NewShaula(cc grpc.ClientConnInterface) Shaula {
 	return &shaulaClient{c: shaulav1.NewShaulaClient(cc)}
 }
@@ -142,6 +151,7 @@ func (s *shaulaClient) Extract(ctx context.Context, req ExtractRequest, onProgre
 
 type fangClient struct{ c fangv1.FangClient }
 
+// NewFang returns a Fang client over cc.
 func NewFang(cc grpc.ClientConnInterface) Fang {
 	return &fangClient{c: fangv1.NewFangClient(cc)}
 }

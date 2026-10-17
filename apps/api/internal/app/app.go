@@ -1,3 +1,5 @@
+// Package app wires the stores, hub, scheduler, runner, service and HTTP handler into one
+// application and runs its periodic maintenance.
 package app
 
 import (
@@ -27,6 +29,8 @@ const (
 	droppedMessage  = "nobody was connected or polling while the job waited, so it was dropped; resubmit and stay connected or keep polling until it starts"
 )
 
+// App is the assembled API: Handler serves HTTP, Start begins maintenance and Shutdown drains
+// running jobs.
 type App struct {
 	Handler http.Handler
 
@@ -41,6 +45,9 @@ type App struct {
 	stopOnce  sync.Once
 }
 
+// New fails the jobs the previous run left active, learns the upstream versions and assembles the
+// app. An unreachable service is only logged; readiness follows once a later Tick reaches it. ctx
+// bounds this startup work only: jobs run on their own context until Shutdown.
 func New(ctx context.Context, cfg config.Config, db *sql.DB, shaula upstream.Shaula, fang upstream.Fang, log *slog.Logger) (*App, error) {
 	clock := func() time.Time { return time.Now().UTC() }
 	js := jobs.Store{DB: db}
@@ -111,6 +118,7 @@ func New(ctx context.Context, cfg config.Config, db *sql.DB, shaula upstream.Sha
 	}, nil
 }
 
+// Start launches the janitor, which calls Tick every minute until Shutdown.
 func (a *App) Start() { go a.janitor() }
 
 func (a *App) janitor() {
@@ -126,6 +134,9 @@ func (a *App) janitor() {
 	}
 }
 
+// Tick runs one round of maintenance: drop queued jobs nobody watches, forget rooms closed over an
+// hour ago, delete expired subscriptions and unreferenced finished jobs, and refresh the upstream
+// versions.
 func (a *App) Tick(ctx context.Context) {
 	a.sched.Sweep()
 	a.hub.Reap(a.clock().Add(-roomRetention))
@@ -139,6 +150,8 @@ func (a *App) Tick(ctx context.Context) {
 	}
 }
 
+// Shutdown stops the janitor and the scheduler and waits for running jobs. If ctx ends first it
+// cancels them, then still waits while they record the interruption. It returns nil.
 func (a *App) Shutdown(ctx context.Context) error {
 	a.stopOnce.Do(func() { close(a.stop) })
 

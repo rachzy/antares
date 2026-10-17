@@ -1,3 +1,6 @@
+// Package service implements the API's operations on top of the stores, caches, scheduler and
+// upstream clients. Failures are *Error values whose Kind the transport maps to a status; every
+// message is written for clients except KindInternal ones, which are only logged.
 package service
 
 import (
@@ -19,28 +22,40 @@ import (
 	"antares/api/internal/upstream"
 )
 
+// Kind classifies a service failure for the transport layer.
 type Kind int
 
 const (
+	// KindInternal is an unexpected failure; its message may hold internal detail and is never
+	// shown.
 	KindInternal Kind = iota
+	// KindInvalid is bad client input (400).
 	KindInvalid
+	// KindNotFound is an unknown target, model run or subscription (404).
 	KindNotFound
+	// KindUnprocessable is valid input the pipeline cannot process (422).
 	KindUnprocessable
+	// KindUnavailable is an upstream service that is down, slow or not ready (503).
 	KindUnavailable
+	// KindBusy is a full job queue (503 with Retry-After).
 	KindBusy
 )
 
+// Error is a service failure with a Kind and a message.
 type Error struct {
 	Kind    Kind
 	Message string
 }
 
+// Error returns the message.
 func (e *Error) Error() string { return e.Message }
 
 func errf(kind Kind, format string, args ...any) *Error {
 	return &Error{Kind: kind, Message: fmt.Sprintf(format, args...)}
 }
 
+// MaxQueryLength (in characters) and MaxPredictRows bound client input; the timeouts bound each
+// upstream call.
 const (
 	MaxQueryLength  = 200
 	MaxPredictRows  = 100
@@ -51,6 +66,8 @@ const (
 	listRunsTimeout = 10 * time.Second
 )
 
+// Service is the API's application layer. Set every field except Log and VersionTimeout before use
+// and do not change them afterwards; the methods are safe for concurrent use.
 type Service struct {
 	Targets     store.Targets
 	Features    cache.FeatureCache
@@ -87,6 +104,10 @@ func (s *Service) versionOf(ctx context.Context, get func(context.Context) (stri
 	return get(ctx)
 }
 
+// RefreshVersions asks Shaula and Fang for their library versions and caches them for Versions.
+// When Shaula's version changes, cached features from other versions are superseded. A failing
+// service keeps its last known version, is reported in the joined error and does not stop the
+// other's refresh.
 func (s *Service) RefreshVersions(ctx context.Context) error {
 	var errs []error
 
@@ -116,6 +137,7 @@ func (s *Service) RefreshVersions(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
+// Versions returns the last known library versions; empty means not reached yet.
 func (s *Service) Versions() (shaula, fang string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -145,6 +167,7 @@ func canonicalMission(raw string) (name, catalog string, err error) {
 	return m.name, m.catalog, nil
 }
 
+// InfoOf returns the public description of t.
 func InfoOf(t store.Target) jobs.TargetInfo {
 	return jobs.TargetInfo{
 		Catalog: t.Catalog, CatalogID: t.CatalogID, DisplayName: t.DisplayName,
@@ -152,6 +175,8 @@ func InfoOf(t store.Target) jobs.TargetInfo {
 	}
 }
 
+// ResolveInput names a star by Query, or by both RA and Dec (ICRS degrees). Mission defaults to
+// Kepler.
 type ResolveInput struct {
 	Query   string
 	Mission string
@@ -159,6 +184,9 @@ type ResolveInput struct {
 	Dec     *float64
 }
 
+// Resolve finds the star a query or position names in the mission's catalogue. A query first tries
+// the stored aliases; otherwise Shaula resolves it and the target is stored, with the query as a
+// new alias.
 func (s *Service) Resolve(ctx context.Context, in ResolveInput) (store.Target, error) {
 	mission, catalog, err := canonicalMission(in.Mission)
 	if err != nil {
@@ -226,6 +254,10 @@ func (s *Service) resolveByPosition(ctx context.Context, in ResolveInput, missio
 	return target, nil
 }
 
+// fromUpstream maps an upstream error to an *Error for the operation what ("pipeline" or "model").
+// Client-caused kinds keep the service's message; an unavailable or silent service gets a generic
+// one, with details logged. FailedPrecondition from the model means no servable model (503); from
+// the pipeline it means the star cannot be processed (422).
 func (s *Service) fromUpstream(what string, err error) error {
 	var ue *upstream.Error
 	if errors.As(err, &ue) {

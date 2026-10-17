@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// statusWriter records the status for logging. It forwards Hijack and Flush, so WebSocket upgrades
+// still work through it.
 type statusWriter struct {
 	http.ResponseWriter
 	status int

@@ -30,6 +30,7 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
+// decode reads exactly one JSON value of at most 1 MiB, rejecting unknown fields.
 func decode(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	dec := json.NewDecoder(r.Body)
@@ -57,6 +58,9 @@ type errorBody struct {
 	} `json:"error"`
 }
 
+// writeError renders err as a JSON error. Only an *httpError or a client-facing service kind keeps
+// its message; anything else, KindInternal included, is logged and answered with a generic 500, so
+// internal details never leak.
 func (a *API) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	status, code, message := http.StatusInternalServerError, "internal", "internal error"
 
