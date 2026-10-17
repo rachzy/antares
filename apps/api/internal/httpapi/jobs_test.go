@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/rachzy/antares/apps/api/internal/jobs"
-	"github.com/rachzy/antares/apps/api/internal/service"
+	"antares/api/internal/jobs"
+	"antares/api/internal/service"
 )
 
 func cachedOutcome() service.Outcome {

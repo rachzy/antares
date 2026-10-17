@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/cache"
-	"github.com/rachzy/antares/apps/api/internal/hub"
-	"github.com/rachzy/antares/apps/api/internal/upstream"
+	"antares/api/internal/cache"
+	"antares/api/internal/hub"
+	"antares/api/internal/upstream"
 )
 
 var (

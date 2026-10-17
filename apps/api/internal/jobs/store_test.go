@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/jobs"
-	"github.com/rachzy/antares/apps/api/internal/store"
-	"github.com/rachzy/antares/apps/api/internal/testdb"
+	"antares/api/internal/jobs"
+	"antares/api/internal/store"
+	"antares/api/internal/testdb"
 )
 
 var t0 = time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)

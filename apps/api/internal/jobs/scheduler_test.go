@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/jobs"
+	"antares/api/internal/jobs"
 )
 
 type harness struct {

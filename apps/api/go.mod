@@ -1,4 +1,4 @@
-module github.com/rachzy/antares/apps/api
+module antares/api
 
 go 1.27
 

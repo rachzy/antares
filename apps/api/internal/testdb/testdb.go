@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rachzy/antares/apps/api/internal/store"
+	"antares/api/internal/store"
 )
 
 func Open(t testing.TB) *sql.DB {

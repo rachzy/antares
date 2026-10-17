@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rachzy/antares/apps/api/internal/config"
-	"github.com/rachzy/antares/apps/api/internal/httpapi"
-	"github.com/rachzy/antares/apps/api/internal/service"
-	"github.com/rachzy/antares/apps/api/internal/store"
-	"github.com/rachzy/antares/apps/api/internal/upstream"
+	"antares/api/internal/config"
+	"antares/api/internal/httpapi"
+	"antares/api/internal/service"
+	"antares/api/internal/store"
+	"antares/api/internal/upstream"
 )
 
 var errUnexpected = errors.New("stub: unexpected call")

@@ -16,14 +16,14 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/rachzy/antares/apps/api/internal/app"
-	"github.com/rachzy/antares/apps/api/internal/config"
-	"github.com/rachzy/antares/apps/api/internal/hub"
-	"github.com/rachzy/antares/apps/api/internal/jobs"
-	"github.com/rachzy/antares/apps/api/internal/store"
-	"github.com/rachzy/antares/apps/api/internal/testdb"
-	"github.com/rachzy/antares/apps/api/internal/upstream"
-	"github.com/rachzy/antares/apps/api/internal/upstream/fake"
+	"antares/api/internal/app"
+	"antares/api/internal/config"
+	"antares/api/internal/hub"
+	"antares/api/internal/jobs"
+	"antares/api/internal/store"
+	"antares/api/internal/testdb"
+	"antares/api/internal/upstream"
+	"antares/api/internal/upstream/fake"
 )
 
 type rig struct {

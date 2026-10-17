@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/rachzy/antares/apps/api/internal/upstream"
+	"antares/api/internal/upstream"
 )
 
 var (

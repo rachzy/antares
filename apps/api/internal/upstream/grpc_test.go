@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/rachzy/antares/apps/api/internal/upstream"
+	"antares/api/internal/upstream"
 )
 
 func dial(t *testing.T, register func(*grpc.Server)) *grpc.ClientConn {

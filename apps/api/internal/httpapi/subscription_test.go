@@ -14,11 +14,11 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/rachzy/antares/apps/api/internal/config"
-	"github.com/rachzy/antares/apps/api/internal/httpapi"
-	"github.com/rachzy/antares/apps/api/internal/hub"
-	"github.com/rachzy/antares/apps/api/internal/jobs"
-	"github.com/rachzy/antares/apps/api/internal/service"
+	"antares/api/internal/config"
+	"antares/api/internal/httpapi"
+	"antares/api/internal/hub"
+	"antares/api/internal/jobs"
+	"antares/api/internal/service"
 )
 
 func newToken(t *testing.T) string {

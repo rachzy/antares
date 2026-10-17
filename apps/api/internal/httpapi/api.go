@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/rachzy/antares/apps/api/internal/config"
-	"github.com/rachzy/antares/apps/api/internal/service"
-	"github.com/rachzy/antares/apps/api/internal/store"
-	"github.com/rachzy/antares/apps/api/internal/upstream"
+	"antares/api/internal/config"
+	"antares/api/internal/service"
+	"antares/api/internal/store"
+	"antares/api/internal/upstream"
 )
 
 type Backend interface {

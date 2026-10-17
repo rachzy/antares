@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/rachzy/antares/apps/api/internal/service"
-	"github.com/rachzy/antares/apps/api/internal/upstream"
+	"antares/api/internal/service"
+	"antares/api/internal/upstream"
 )
 
 func (a *API) health(w http.ResponseWriter, _ *http.Request) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/hub"
+	"antares/api/internal/hub"
 )
 
 type fakeClock struct {

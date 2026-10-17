@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/store"
+	"antares/api/internal/store"
 )
 
 const (

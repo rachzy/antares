@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/hub"
-	"github.com/rachzy/antares/apps/api/internal/jobs"
+	"antares/api/internal/hub"
+	"antares/api/internal/jobs"
 )
 
 type Watch struct {

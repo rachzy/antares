@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/cache"
-	"github.com/rachzy/antares/apps/api/internal/store"
-	"github.com/rachzy/antares/apps/api/internal/testdb"
+	"antares/api/internal/cache"
+	"antares/api/internal/store"
+	"antares/api/internal/testdb"
 )
 
 func targetID(t *testing.T, targets store.Targets) int64 {

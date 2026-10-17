@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/cache"
-	"github.com/rachzy/antares/apps/api/internal/config"
-	"github.com/rachzy/antares/apps/api/internal/hub"
-	"github.com/rachzy/antares/apps/api/internal/jobs"
-	"github.com/rachzy/antares/apps/api/internal/service"
-	"github.com/rachzy/antares/apps/api/internal/store"
-	"github.com/rachzy/antares/apps/api/internal/testdb"
-	"github.com/rachzy/antares/apps/api/internal/upstream"
-	"github.com/rachzy/antares/apps/api/internal/upstream/fake"
+	"antares/api/internal/cache"
+	"antares/api/internal/config"
+	"antares/api/internal/hub"
+	"antares/api/internal/jobs"
+	"antares/api/internal/service"
+	"antares/api/internal/store"
+	"antares/api/internal/testdb"
+	"antares/api/internal/upstream"
+	"antares/api/internal/upstream/fake"
 )
 
 var defaultParams = cache.ExtractParams{Mission: "Kepler", SigmaClip: 5}

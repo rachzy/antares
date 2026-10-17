@@ -11,9 +11,9 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/rachzy/antares/apps/api/internal/hub"
-	"github.com/rachzy/antares/apps/api/internal/jobs"
-	"github.com/rachzy/antares/apps/api/internal/service"
+	"antares/api/internal/hub"
+	"antares/api/internal/jobs"
+	"antares/api/internal/service"
 )
 
 const keepAliveInterval = 20 * time.Second

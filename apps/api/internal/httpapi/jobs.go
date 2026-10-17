@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/rachzy/antares/apps/api/internal/jobs"
-	"github.com/rachzy/antares/apps/api/internal/service"
+	"antares/api/internal/jobs"
+	"antares/api/internal/service"
 )
 
 type extractRequest struct {

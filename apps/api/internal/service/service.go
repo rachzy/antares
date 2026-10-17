@@ -11,12 +11,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/rachzy/antares/apps/api/internal/cache"
-	"github.com/rachzy/antares/apps/api/internal/config"
-	"github.com/rachzy/antares/apps/api/internal/hub"
-	"github.com/rachzy/antares/apps/api/internal/jobs"
-	"github.com/rachzy/antares/apps/api/internal/store"
-	"github.com/rachzy/antares/apps/api/internal/upstream"
+	"antares/api/internal/cache"
+	"antares/api/internal/config"
+	"antares/api/internal/hub"
+	"antares/api/internal/jobs"
+	"antares/api/internal/store"
+	"antares/api/internal/upstream"
 )
 
 type Kind int

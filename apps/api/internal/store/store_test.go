@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/store"
-	"github.com/rachzy/antares/apps/api/internal/testdb"
+	"antares/api/internal/store"
+	"antares/api/internal/testdb"
 )
 
 func insertTarget(t *testing.T, db *sql.DB) int64 {

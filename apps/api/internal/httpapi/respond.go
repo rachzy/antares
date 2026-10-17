@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/rachzy/antares/apps/api/internal/service"
+	"antares/api/internal/service"
 )
 
 const maxBodyBytes = 1 << 20

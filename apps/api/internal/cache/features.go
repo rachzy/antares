@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rachzy/antares/apps/api/internal/store"
+	"antares/api/internal/store"
 )
 
 type FeatureEntry struct {
