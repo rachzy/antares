@@ -315,3 +315,32 @@ func TestWaitBlocksUntilPromotedJobReturns(t *testing.T) {
 		t.Fatal("Wait did not return after b finished")
 	}
 }
+
+func TestStopPreventsPromotionAndWaitCoversOnlyRunningJobs(t *testing.T) {
+	h := newHarness()
+	h.holdJob("a")
+	s := jobs.NewScheduler(h.options(1, 5))
+	mustEnqueue(t, s, "a", 0)
+	eventually(t, "a to start", func() bool { return len(h.startedIDs()) == 1 })
+	mustEnqueue(t, s, "b", 1)
+
+	s.Stop()
+	if _, err := s.Enqueue("c"); !errors.Is(err, jobs.ErrStopped) {
+		t.Fatalf("Enqueue after Stop = %v, want ErrStopped", err)
+	}
+	done := make(chan struct{})
+	go func() { s.Wait(); close(done) }()
+	h.finish("a")
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Wait did not return after the running job finished")
+	}
+	s.Sweep()
+	if got := h.startedIDs(); !slices.Equal(got, []string{"a"}) {
+		t.Fatalf("started = %v, a waiting job must not be promoted after Stop", got)
+	}
+	if got := h.droppedIDs(); len(got) != 0 {
+		t.Fatalf("dropped = %v, nothing may be dropped after Stop", got)
+	}
+}

@@ -30,6 +30,7 @@ type rig struct {
 	srv    *httptest.Server
 	shaula *fake.Shaula
 	fang   *fake.Fang
+	app    *app.App
 }
 
 func newRig(t *testing.T, env map[string]string, setup func(*fake.Shaula, *fake.Fang)) *rig {
@@ -65,7 +66,7 @@ func newRigWithDB(t *testing.T, db *sql.DB, env map[string]string, setup func(*f
 		defer cancel()
 		_ = application.Shutdown(ctx)
 	})
-	return &rig{srv: srv, shaula: shaula, fang: fang}
+	return &rig{srv: srv, shaula: shaula, fang: fang, app: application}
 }
 
 func (g *rig) post(t *testing.T, path, body string) (int, map[string]any) {
@@ -408,4 +409,70 @@ func TestTickRemovesExpiredSubscriptionsAndOrphanedJobs(t *testing.T) {
 	shutdown, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	_ = application.Shutdown(shutdown)
+}
+
+func TestShutdownLeavesQueuedJobsQueuedForRestartRecovery(t *testing.T) {
+	release := make(chan struct{})
+	db := testdb.Open(t)
+	g := newRigWithDB(t, db, map[string]string{"ANTARES_MAX_ACTIVE": "1"}, func(s *fake.Shaula, _ *fake.Fang) {
+		s.ResolveFn = func(_ context.Context, req upstream.ResolveRequest) (upstream.Resolved, error) {
+			id := map[string]string{"A": "1", "B": "2"}[req.Query]
+			return upstream.Resolved{Catalog: "KIC", CatalogID: id, RA: 10, Dec: 10, DisplayName: req.Query, Designation: "KIC " + id}, nil
+		}
+		s.ExtractFn = func(ctx context.Context, req upstream.ExtractRequest, _ func(upstream.Progress)) (upstream.FeatureSet, error) {
+			select {
+			case <-release:
+			case <-ctx.Done():
+				return upstream.FeatureSet{}, ctx.Err()
+			}
+			return fake.DefaultFeatureSet(req), nil
+		}
+	})
+	_, a := g.post(t, "/pipeline/extract", `{"query":"A"}`)
+	_, b := g.post(t, "/pipeline/extract", `{"query":"B"}`)
+	tokenA, tokenB := text(t, a, "token"), text(t, b, "token")
+	g.dial(t, "/subscription/"+tokenB)
+
+	done := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		done <- g.app.Shutdown(ctx)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	if s := stateOf(g, t, tokenA); s != "done" {
+		t.Fatalf("running job state = %q, want done", s)
+	}
+	if s := stateOf(g, t, tokenB); s != "queued" {
+		t.Fatalf("queued job state = %q, want queued (neither started nor dropped)", s)
+	}
+	if n := g.shaula.ExtractCount(); n != 1 {
+		t.Fatalf("extractions = %d, want 1", n)
+	}
+}
+
+type hangingShaula struct{ fake.Shaula }
+
+func (*hangingShaula) Version(ctx context.Context) (string, error) {
+	<-ctx.Done()
+	return "", ctx.Err()
+}
+
+func TestVersionRefreshIsBounded(t *testing.T) {
+	defer app.SetVersionTimeout(50 * time.Millisecond)()
+	cfg, _ := config.Load(func(string) string { return "" })
+	start := time.Now()
+	application, err := app.New(context.Background(), cfg, testdb.Open(t), &hangingShaula{}, &fake.Fang{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	application.Tick(context.Background())
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("New and Tick took %v with a hanging upstream", elapsed)
+	}
 }

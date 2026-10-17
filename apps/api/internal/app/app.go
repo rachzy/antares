@@ -19,6 +19,8 @@ import (
 	"github.com/rachzy/antares/apps/api/internal/upstream"
 )
 
+var versionTimeout = 5 * time.Second
+
 const (
 	janitorInterval = time.Minute
 	roomRetention   = time.Hour
@@ -66,7 +68,7 @@ func New(ctx context.Context, cfg config.Config, db *sql.DB, shaula upstream.Sha
 		Cfg:         cfg,
 		Log:         log,
 	}
-	if err := svc.RefreshVersions(ctx); err != nil {
+	if err := refreshVersions(ctx, svc); err != nil {
 		log.Warn("upstream versions are not known yet", "error", err)
 	}
 
@@ -107,6 +109,12 @@ func New(ctx context.Context, cfg config.Config, db *sql.DB, shaula upstream.Sha
 	}, nil
 }
 
+func refreshVersions(ctx context.Context, svc *service.Service) error {
+	ctx, cancel := context.WithTimeout(ctx, versionTimeout)
+	defer cancel()
+	return svc.RefreshVersions(ctx)
+}
+
 func (a *App) Start() { go a.janitor() }
 
 func (a *App) janitor() {
@@ -130,7 +138,7 @@ func (a *App) Tick(ctx context.Context) {
 	} else if n > 0 {
 		a.log.Info("deleted expired jobs", "jobs", n)
 	}
-	if err := a.svc.RefreshVersions(ctx); err != nil {
+	if err := refreshVersions(ctx, a.svc); err != nil {
 		a.log.Warn("refresh upstream versions", "error", err)
 	}
 }
@@ -138,6 +146,7 @@ func (a *App) Tick(ctx context.Context) {
 func (a *App) Shutdown(ctx context.Context) error {
 	a.stopOnce.Do(func() { close(a.stop) })
 
+	a.sched.Stop()
 	drained := make(chan struct{})
 	go func() {
 		a.sched.Wait()

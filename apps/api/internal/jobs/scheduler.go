@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-var ErrQueueFull = errors.New("the queue is full")
+var (
+	ErrQueueFull = errors.New("the queue is full")
+	ErrStopped   = errors.New("the scheduler is stopped")
+)
 
 type SchedulerOptions struct {
 	MaxActive int
@@ -26,6 +29,7 @@ type Scheduler struct {
 	queue   []string
 	lastPos map[string]int
 	running map[string]bool
+	stopped bool
 	wg      sync.WaitGroup
 }
 
@@ -41,6 +45,10 @@ func NewScheduler(opt SchedulerOptions) *Scheduler {
 
 func (s *Scheduler) Enqueue(jobID string) (int, error) {
 	s.mu.Lock()
+	if s.stopped {
+		s.mu.Unlock()
+		return 0, ErrStopped
+	}
 	if s.active >= s.opt.MaxActive && len(s.queue) >= s.opt.MaxQueue {
 		s.mu.Unlock()
 		return 0, ErrQueueFull
@@ -57,6 +65,10 @@ func (s *Scheduler) Enqueue(jobID string) (int, error) {
 
 func (s *Scheduler) Sweep() {
 	s.mu.Lock()
+	if s.stopped {
+		s.mu.Unlock()
+		return
+	}
 	var absent []string
 	kept := make([]string, 0, len(s.queue))
 	for _, id := range s.queue {
@@ -90,6 +102,12 @@ func (s *Scheduler) Stats() (active, waiting int) {
 	return s.active, len(s.queue)
 }
 
+func (s *Scheduler) Stop() {
+	s.mu.Lock()
+	s.stopped = true
+	s.mu.Unlock()
+}
+
 func (s *Scheduler) Wait() { s.wg.Wait() }
 
 func (s *Scheduler) positionLocked(jobID string) int {
@@ -103,6 +121,9 @@ func (s *Scheduler) positionLocked(jobID string) int {
 
 func (s *Scheduler) pumpLocked() dispatch {
 	d := dispatch{positions: map[string]int{}}
+	if s.stopped {
+		return d
+	}
 	for s.active < s.opt.MaxActive && len(s.queue) > 0 {
 		id := s.queue[0]
 		s.queue = s.queue[1:]
