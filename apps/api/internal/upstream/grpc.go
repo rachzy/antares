@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	fangv1 "github.com/rachzy/antares/libs/proto/gen/go/antares/fang/v1"
 	shaulav1 "github.com/rachzy/antares/libs/proto/gen/go/antares/shaula/v1"
@@ -22,15 +23,12 @@ func mapError(ctx context.Context, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
 	}
+	if dl, ok := ctx.Deadline(); ok && status.Code(err) == codes.DeadlineExceeded && !time.Now().Before(dl) {
+		return context.DeadlineExceeded
+	}
 	st, ok := status.FromError(err)
 	if !ok {
 		return &Error{Kind: KindInternal, Message: err.Error()}
-	}
-	if c := st.Code(); c == codes.Canceled || c == codes.DeadlineExceeded {
-		if _, ok := ctx.Deadline(); ok {
-			<-ctx.Done()
-			return ctx.Err()
-		}
 	}
 	kind := KindInternal
 	switch st.Code() {

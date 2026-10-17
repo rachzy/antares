@@ -60,6 +60,8 @@ func (f *fakeShaulaServer) ResolveTarget(_ context.Context, r *shaulav1.ResolveT
 		return nil, status.Error(codes.FailedPrecondition, "no light curves")
 	case "down":
 		return nil, status.Error(codes.Unavailable, "archive unreachable")
+	case "deadline":
+		return nil, status.Error(codes.DeadlineExceeded, "proxy timed out")
 	case "boom":
 		return nil, status.Error(codes.Internal, "kaboom")
 	case "weird":
@@ -355,5 +357,19 @@ func TestAnUnreachableServiceIsUnavailable(t *testing.T) {
 	_, err = upstream.NewShaula(conn).Version(ctx)
 	if upstream.KindOf(err) != upstream.KindUnavailable {
 		t.Fatalf("err = %v (kind %v), want KindUnavailable", err, upstream.KindOf(err))
+	}
+}
+
+func TestAnUpstreamDeadlineWithinTheCallersDeadlineIsUnavailable(t *testing.T) {
+	client := shaulaClient(t, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	start := time.Now()
+	_, err := client.Resolve(ctx, upstream.ResolveRequest{Query: "deadline", Mission: "Kepler"})
+	if upstream.KindOf(err) != upstream.KindUnavailable {
+		t.Fatalf("err = %v (kind %v), want KindUnavailable", err, upstream.KindOf(err))
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("returned after %v, must not wait for the caller's deadline", elapsed)
 	}
 }
