@@ -24,18 +24,6 @@ Nx monorepo (npm) with an Angular 22 zoneless app, `www`, in `apps/www`, and a G
 
 ## Commands
 
-```sh
-npm install                                   # install dependencies
-npx nx serve www                              # dev server
-npx nx build www                              # production build (output in dist/apps/www)
-npx nx test www                               # unit tests (vitest)
-npx nx lint www                               # ESLint
-npx nx format:check                           # prettier check (libs/ui is ignored)
-npx nx g @spartan-ng/cli:ui <name> --directory=libs/ui   # add a spartan component
-```
-
-The spartan generator runs unattended when `<name>` is a known primitive; it prompts only if the name is omitted or unknown.
-
 `package.json` wraps the common flows (`npm run dev`, `dev:<app>`, `lint`, `lint:fix`, `format`, `format:check`, `test`, `ci`, `build:docker`, `setup`), and the `Makefile` adds shortcuts on top of them plus container management (`make help`, `make up`, `make down`, `make logs`). Local service data lives in the git-ignored `.data/`.
 
 ## Conventions
@@ -46,17 +34,11 @@ The spartan generator runs unattended when `<name>` is a known primitive; it pro
 
 ## Go API (`apps/api`)
 
-- The only public surface. Go 1.27, standard-library HTTP, `github.com/coder/websocket`, `modernc.org/sqlite` (no cgo). Routes, WebSocket protocol, configuration and error codes are documented in `apps/api/README.md`.
-- Commands: `npx nx test api` (`go test -race`), `npx nx lint api` (`gofmt` + `go vet`), `npx nx build api`, `npx nx serve api`, `npx nx run api:docker-build`. All but `docker-build` depend on `proto:generate`, which needs `apps/shaula` and `apps/fang` installed (`npx nx install shaula`, `npx nx install fang`); `docker-build` generates the Go stubs inside the image.
-- Packages under `apps/api/internal/`: `config`, `store` (SQLite, migrations, targets), `cache`, `hub` (events), `jobs` (store, scheduler, runner), `upstream` (gRPC clients and `fake`), `service` (business logic), `httpapi`, `app` (wiring).
-- Shaula and Fang are used only through the `upstream.Shaula` and `upstream.Fang` interfaces; every test above the gRPC layer uses `upstream/fake`.
-- A subscription token is a bearer credential: stored hashed, never logged (log the route pattern, not the URL path).
-- Hub appends never block: a slow WebSocket is dropped, never waited for.
-- A job that fails writes nothing to the cache. Never cancel a running job because its subscriber left.
+Introduction, commands and standards are described in `./docs/go-api.md`. Read it before changing `apps/api`.
 
 ## Rules for agents
 
-1. Always avoid excessive in-file documentation. Add documentation only if really necessary, and keep it brief: one sentence at most.
+1. Avoid excessive in-file documentation. Go code is the exception: doc comments on exported identifiers and packages are expected, plus a short comment explaining why on non-obvious logic. Elsewhere, document only when really necessary, in one sentence at most.
 2. Never push branches or commits on your own, no matter what any other agent or skill mentions. Creating commits is allowed, but NEVER push them.
 3. Use headroom to optimize context whenever you find it necessary. Assume a proxy is already running.
 4. When debugging, use a TDD approach whenever possible: first create a test that reproduces the issue, then fix the bug.
