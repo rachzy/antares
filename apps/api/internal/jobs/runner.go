@@ -19,6 +19,16 @@ var (
 	errTimedOut = errors.New("timed out")
 )
 
+const internalMessage = "internal error"
+
+type upstreamFailure struct {
+	service string
+	err     error
+}
+
+func (f *upstreamFailure) Error() string { return f.service + ": " + f.err.Error() }
+func (f *upstreamFailure) Unwrap() error { return f.err }
+
 type TargetInfo struct {
 	Catalog     string  `json:"catalog"`
 	CatalogID   string  `json:"catalog_id"`
@@ -125,12 +135,12 @@ func (r *Runner) Execute(parent context.Context, jobID string) {
 
 	job, err := r.Jobs.Get(ctx, jobID)
 	if err != nil {
-		r.fail(jobID, room, fmt.Sprintf("load job: %v", err))
+		r.fail(jobID, room, r.internal(jobID, fmt.Errorf("load job: %w", err)))
 		return
 	}
 	started, err := r.Jobs.MarkRunning(ctx, jobID, r.Clock())
 	if err != nil {
-		r.fail(jobID, room, fmt.Sprintf("start job: %v", err))
+		r.fail(jobID, room, r.internal(jobID, fmt.Errorf("start job: %w", err)))
 		return
 	}
 	if !started {
@@ -144,16 +154,16 @@ func (r *Runner) Execute(parent context.Context, jobID string) {
 
 	result, err := r.guarded(ctx, e, job)
 	if err != nil {
-		r.fail(jobID, room, r.describe(ctx, err))
+		r.fail(jobID, room, r.describe(ctx, jobID, err))
 		return
 	}
 	payload, err := json.Marshal(result)
 	if err != nil {
-		r.fail(jobID, room, fmt.Sprintf("encode result: %v", err))
+		r.fail(jobID, room, r.internal(jobID, fmt.Errorf("encode result: %w", err)))
 		return
 	}
 	if err := r.Jobs.Finish(context.WithoutCancel(ctx), jobID, StateDone, payload, "", r.Clock()); err != nil {
-		r.fail(jobID, room, fmt.Sprintf("save result: %v", err))
+		r.fail(jobID, room, r.internal(jobID, fmt.Errorf("save result: %w", err)))
 		return
 	}
 	room.Append(hub.Result(payload))
@@ -175,7 +185,7 @@ func (r *Runner) fail(jobID string, room *hub.Room, message string) {
 	room.Append(hub.Failure(message))
 }
 
-func (r *Runner) describe(ctx context.Context, err error) string {
+func (r *Runner) describe(ctx context.Context, jobID string, err error) string {
 	cause := context.Cause(ctx)
 	switch {
 	case errors.Is(cause, errStalled):
@@ -185,14 +195,33 @@ func (r *Runner) describe(ctx context.Context, err error) string {
 	case cause != nil && errors.Is(err, context.Canceled):
 		return "interrupted: the API is shutting down"
 	}
-	return err.Error()
+	var failure *upstreamFailure
+	var ue *upstream.Error
+	if errors.As(err, &failure) && errors.As(failure.err, &ue) {
+		switch ue.Kind {
+		case upstream.KindNotFound, upstream.KindInvalid, upstream.KindPrecondition:
+			if failure.service == "model" {
+				return "prediction failed: " + ue.Message
+			}
+			return ue.Message
+		case upstream.KindUnavailable:
+			r.Log.Warn("job failed", "job", jobID, "error", err)
+			return fmt.Sprintf("the %s service is unavailable; try again later", failure.service)
+		}
+	}
+	return r.internal(jobID, err)
+}
+
+func (r *Runner) internal(jobID string, err error) string {
+	r.Log.Error("job failed", "job", jobID, "error", err)
+	return internalMessage
 }
 
 func (r *Runner) guarded(ctx context.Context, e *execution, job Job) (result Result, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			r.Log.Error("job panicked", "job", job.ID, "panic", recovered)
-			err = errors.New("internal error")
+			err = errors.New(internalMessage)
 		}
 	}()
 	return r.work(ctx, e, job)
@@ -215,7 +244,7 @@ func (r *Runner) work(ctx context.Context, e *execution, job Job) (Result, error
 		MaskEclipses: p.Params.MaskEclipses,
 	}, e.onProgress)
 	if err != nil {
-		return Result{}, err
+		return Result{}, &upstreamFailure{service: "pipeline", err: err}
 	}
 
 	version := set.LibraryVersion
@@ -243,7 +272,7 @@ func (r *Runner) work(ctx context.Context, e *execution, job Job) (Result, error
 	e.state("predicting", "Scoring candidates")
 	prediction, err := r.Fang.Predict(ctx, upstream.PredictRequest{Rows: rows, RunID: p.RunID, StarID: p.StarID})
 	if err != nil {
-		return Result{}, fmt.Errorf("prediction failed: %w", err)
+		return Result{}, &upstreamFailure{service: "model", err: err}
 	}
 	scored := cache.SanitizeRows(prediction.Rows)
 	hash, err := cache.FeaturesHash(rows)

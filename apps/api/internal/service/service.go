@@ -175,7 +175,7 @@ func (s *Service) Resolve(ctx context.Context, in ResolveInput) (store.Target, e
 	defer cancel()
 	resolved, err := s.Shaula.Resolve(rctx, upstream.ResolveRequest{Query: query, Mission: mission})
 	if err != nil {
-		return store.Target{}, fromUpstream("pipeline", err)
+		return store.Target{}, s.fromUpstream("pipeline", err)
 	}
 	target, err := s.Targets.Upsert(ctx, store.Target{
 		Catalog: resolved.Catalog, CatalogID: resolved.CatalogID,
@@ -202,7 +202,7 @@ func (s *Service) resolveByPosition(ctx context.Context, in ResolveInput, missio
 	defer cancel()
 	resolved, err := s.Shaula.Resolve(rctx, upstream.ResolveRequest{RA: in.RA, Dec: in.Dec, Mission: mission})
 	if err != nil {
-		return store.Target{}, fromUpstream("pipeline", err)
+		return store.Target{}, s.fromUpstream("pipeline", err)
 	}
 	target, err := s.Targets.Upsert(ctx, store.Target{
 		Catalog: resolved.Catalog, CatalogID: resolved.CatalogID,
@@ -215,7 +215,7 @@ func (s *Service) resolveByPosition(ctx context.Context, in ResolveInput, missio
 	return target, nil
 }
 
-func fromUpstream(what string, err error) error {
+func (s *Service) fromUpstream(what string, err error) error {
 	var ue *upstream.Error
 	if errors.As(err, &ue) {
 		switch ue.Kind {
@@ -226,12 +226,14 @@ func fromUpstream(what string, err error) error {
 		case upstream.KindPrecondition:
 			return errf(KindUnprocessable, "%s", ue.Message)
 		case upstream.KindUnavailable:
-			return errf(KindUnavailable, "the %s service is unavailable: %s", what, ue.Message)
+			s.log().Warn("upstream unavailable", "service", what, "error", ue.Message)
+			return errf(KindUnavailable, "the %s service is unavailable; try again later", what)
 		}
 		return errf(KindInternal, "%s service: %s", what, ue.Message)
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return errf(KindUnavailable, "the %s service did not answer in time", what)
 	}
-	return errf(KindUnavailable, "the %s service is unavailable", what)
+	s.log().Warn("upstream unavailable", "service", what, "error", err)
+	return errf(KindUnavailable, "the %s service is unavailable; try again later", what)
 }

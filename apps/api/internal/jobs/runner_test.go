@@ -250,14 +250,14 @@ func TestUpstreamFailureFailsTheJobAndCachesNothing(t *testing.T) {
 func TestPredictionFailureKeepsTheFeaturesButFailsTheJob(t *testing.T) {
 	g := newRig(t)
 	g.fang.PredictFn = func(context.Context, upstream.PredictRequest) (upstream.Prediction, error) {
-		return upstream.Prediction{}, &upstream.Error{Kind: upstream.KindUnavailable, Message: "model service down"}
+		return upstream.Prediction{}, &upstream.Error{Kind: upstream.KindUnavailable, Message: "transport: Error while dialing: dial tcp 10.1.2.3:50052: connect: connection refused"}
 	}
 	job, p := g.submit(t, jobs.KindAnalyze, nil)
 
 	g.runner.Execute(context.Background(), job.ID)
 
 	failed := g.job(t, job.ID)
-	if failed.State != jobs.StateFailed || !strings.HasPrefix(failed.Error, "prediction failed:") || !strings.Contains(failed.Error, "model service down") {
+	if failed.State != jobs.StateFailed || failed.Error != "the model service is unavailable; try again later" {
 		t.Fatalf("job = %+v", failed)
 	}
 	if _, ok, _ := g.feats.Get(context.Background(), g.target, p.Params.Hash(), "0.0.1a0", time.Now()); !ok {
@@ -402,5 +402,78 @@ func TestDropRecordsTheStateAndNotifiesSubscribers(t *testing.T) {
 	}
 	if _, open := <-sub.C; open {
 		t.Fatal("the room must be closed after a drop")
+	}
+}
+
+func TestJobErrorsNeverExposeInternalDetail(t *testing.T) {
+	const private = "dial tcp 10.1.2.3:50051"
+	for name, tc := range map[string]struct {
+		extract func() error
+		breakDB string
+		request string
+		want    string
+	}{
+		"unreachable pipeline": {
+			extract: func() error {
+				return &upstream.Error{Kind: upstream.KindUnavailable, Message: "transport: Error while dialing: " + private}
+			},
+			want: "the pipeline service is unavailable; try again later",
+		},
+		"upstream internal": {
+			extract: func() error {
+				return &upstream.Error{Kind: upstream.KindInternal, Message: "stream reset by " + private}
+			},
+			want: "internal error",
+		},
+		"unexpected error": {
+			extract: func() error { return fmt.Errorf("read %s: connection reset", private) },
+			want:    "internal error",
+		},
+		"cache write":  {breakDB: "DROP TABLE feature_cache", want: "internal error"},
+		"bad payload":  {request: `{"target":5}`, want: "internal error"},
+		"precondition": {extract: func() error { return &upstream.Error{Kind: upstream.KindPrecondition, Message: "No light curves"} }, want: "No light curves"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			g := newRig(t)
+			var logs strings.Builder
+			g.runner.Log = slog.New(slog.NewTextHandler(&logs, nil))
+			if tc.extract != nil {
+				g.shaula.ExtractFn = func(context.Context, upstream.ExtractRequest, func(upstream.Progress)) (upstream.FeatureSet, error) {
+					return upstream.FeatureSet{}, tc.extract()
+				}
+			}
+			if tc.breakDB != "" {
+				if _, err := g.feats.DB.Exec(tc.breakDB); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var job jobs.Job
+			if tc.request != "" {
+				joined, err := g.store.Join(context.Background(), jobs.NewJob{
+					Kind: jobs.KindExtract, DedupeKey: "bad", TargetID: g.target, Request: json.RawMessage(tc.request),
+				}, time.Now(), time.Hour)
+				if err != nil {
+					t.Fatal(err)
+				}
+				job = joined.Job
+			} else {
+				job, _ = g.submit(t, jobs.KindExtract, nil)
+			}
+
+			g.runner.Execute(context.Background(), job.ID)
+
+			failed := g.job(t, job.ID)
+			if failed.State != jobs.StateFailed || failed.Error != tc.want {
+				t.Fatalf("error = %q, want %q", failed.Error, tc.want)
+			}
+			for _, leak := range []string{"10.1.2.3", "no such table", "json", "cache features"} {
+				if strings.Contains(failed.Error, leak) {
+					t.Fatalf("job error %q leaks %q", failed.Error, leak)
+				}
+			}
+			if tc.want == "internal error" && !strings.Contains(logs.String(), job.ID) {
+				t.Fatalf("the detail must be logged with the job id: %s", logs.String())
+			}
+		})
 	}
 }

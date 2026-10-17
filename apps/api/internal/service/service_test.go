@@ -707,3 +707,24 @@ func TestFinishedJobsAreServedFromPersistedHistory(t *testing.T) {
 		t.Fatalf("view = %+v, %v", view, err)
 	}
 }
+
+func TestUnavailableMessagesHideUpstreamDetail(t *testing.T) {
+	detail := &upstream.Error{Kind: upstream.KindUnavailable, Message: "transport: Error while dialing: dial tcp 10.1.2.3:50051: connect: connection refused"}
+	e := newEnv(t, func(e *env) {
+		e.shaula.ResolveFn = func(context.Context, upstream.ResolveRequest) (upstream.Resolved, error) {
+			return upstream.Resolved{}, detail
+		}
+		e.fang.ListRunsErr = detail
+	})
+	ctx := context.Background()
+	_, resolveErr := e.svc.Resolve(ctx, service.ResolveInput{Query: "x"})
+	_, runsErr := e.svc.Runs(ctx)
+	for want, err := range map[string]error{
+		"the pipeline service is unavailable; try again later": resolveErr,
+		"the model service is unavailable; try again later":    runsErr,
+	} {
+		if err == nil || kindOf(t, err) != service.KindUnavailable || err.Error() != want {
+			t.Errorf("err = %v, want %q", err, want)
+		}
+	}
+}

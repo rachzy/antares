@@ -181,7 +181,7 @@ func (s *Service) score(ctx context.Context, rows []map[string]any, featuresHash
 	defer cancel()
 	prediction, err := s.Fang.Predict(pctx, upstream.PredictRequest{Rows: rows, RunID: run.RunID, StarID: starID})
 	if err != nil {
-		return scored{}, fromUpstream("model", err)
+		return scored{}, s.fromUpstream("model", err)
 	}
 	out := cache.SanitizeRows(prediction.Rows)
 	if err := s.Predictions.Put(ctx, cache.PredictionEntry{
@@ -214,7 +214,7 @@ func (s *Service) Runs(ctx context.Context) ([]upstream.Run, error) {
 	defer cancel()
 	runs, err := s.Fang.ListRuns(rctx)
 	if err != nil {
-		return nil, fromUpstream("model", err)
+		return nil, s.fromUpstream("model", err)
 	}
 	sorted := append([]upstream.Run(nil), runs...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].RunID > sorted[j].RunID })
