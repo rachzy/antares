@@ -5,10 +5,12 @@ The only public surface of Antares. It resolves stars, answers from caches when 
 ## Running
 
 ```sh
-npx nx serve api          # go run, needs Shaula and Fang reachable
+npx nx serve api          # go run; npm run dev:api stores the database in .data/api
 npx nx test api           # go test -race ./...
 npx nx run api:docker-build
 ```
+
+The API starts even when Shaula or Fang is unreachable; `/healthz` then reports `ready: false` until both have answered.
 
 | Variable                    | Default           | Meaning                                                                          |
 | --------------------------- | ----------------- | -------------------------------------------------------------------------------- |
@@ -65,12 +67,12 @@ Identical requests made while one is running share a single job; each caller sti
 
 ### `GET /subscription/{token}`
 
-Without an `Upgrade: websocket` header it returns a JSON snapshot: `{"kind","state","position","error","result","milestones":[...],"last_seq"}`. `state` is `queued`, `running`, `done`, `failed` or `dropped`. Polling the snapshot counts as presence, so it also keeps a waiting job alive.
+Without an `Upgrade: websocket` header it returns a JSON snapshot: `{"kind","state","position","error","result","milestones":[...],"last_seq"}`. `kind` is `extract` or `analyze`; `state` is `queued`, `running`, `done`, `failed` or `dropped`. `position` appears only while queued, `error` only for a failed or dropped job, and `result` only once it is done. Polling the snapshot counts as presence, so it also keeps a waiting job alive.
 
 With the upgrade it streams frames `{"events":[{"seq","type","stage","message","fraction","at","payload"}]}`:
 
 - `type` is `state`, `progress`, `result` or `error`. The stream ends with a `result` (payload = the result above) or an `error`, then a normal close (1000).
-- `seq` starts at 1 and has no gaps. Reconnect with `?since=<last seq>` to receive only what you missed; a finished job is replayed from its persisted milestones.
+- `seq` starts at 1 and increases. Reconnect with `?since=<last seq>` to receive what you missed. Replay comes from a bounded in-memory buffer (`ANTARES_RING_SIZE`, 500 events), so a reconnect after a long gap may skip log lines. A finished job's history holds its milestones plus the terminal event.
 - A client too slow to keep up is closed with code 1013; reconnect with `?since=`.
 - The token is the credential. It is stored hashed, is valid for `ANTARES_TOKEN_RETENTION`, and is never logged. Store it (for example in `localStorage`) to resume after a refresh.
 

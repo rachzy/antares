@@ -524,3 +524,33 @@ func TestPollingKeepsAQueuedJobPresent(t *testing.T) {
 	eventually(t, "A to finish", func() bool { return stateOf(g, t, tokenA) == "done" })
 	eventually(t, "the polled B to run and finish", func() bool { return stateOf(g, t, tokenB) == "done" })
 }
+
+type contextFang struct{ fake.Fang }
+
+func (f *contextFang) Version(ctx context.Context) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	return f.Fang.Version(ctx)
+}
+
+func TestAHangingShaulaStillLetsFangsVersionBeRead(t *testing.T) {
+	defer app.SetVersionTimeout(50 * time.Millisecond)()
+	cfg, _ := config.Load(func(string) string { return "" })
+	application, err := app.New(context.Background(), cfg, testdb.Open(t), &hangingShaula{}, &contextFang{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(application.Handler)
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/healthz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var health map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&health)
+	if health["fang_version"] != "0.0.1a0" || health["shaula_version"] != "unknown" {
+		t.Fatalf("health = %v: each upstream needs its own version timeout", health)
+	}
+}

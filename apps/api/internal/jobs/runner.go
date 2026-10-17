@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"sync/atomic"
 	"time"
 
@@ -98,7 +99,11 @@ func (e *execution) onProgress(p upstream.Progress) {
 	if p.Stage == "done" {
 		return
 	}
-	ev := e.room.Append(hub.Progress(p.Stage, p.Message, p.Fraction))
+	fraction := p.Fraction
+	if fraction != nil && (math.IsNaN(*fraction) || math.IsInf(*fraction, 0)) {
+		fraction = nil
+	}
+	ev := e.room.Append(hub.Progress(p.Stage, p.Message, fraction))
 	if p.Stage != e.stage {
 		e.stage = p.Stage
 		e.record(ev, p.Stage, p.Message)

@@ -272,6 +272,7 @@ func TestResolveMapsUpstreamErrors(t *testing.T) {
 	}{
 		"not found":   {&upstream.Error{Kind: upstream.KindNotFound, Message: "no such star"}, service.KindNotFound},
 		"invalid":     {&upstream.Error{Kind: upstream.KindInvalid, Message: "bad"}, service.KindInvalid},
+		"failed":      {&upstream.Error{Kind: upstream.KindPrecondition, Message: "no light curves"}, service.KindUnprocessable},
 		"unavailable": {&upstream.Error{Kind: upstream.KindUnavailable, Message: "down"}, service.KindUnavailable},
 		"internal":    {&upstream.Error{Kind: upstream.KindInternal, Message: "boom"}, service.KindInternal},
 		"unexpected":  {errors.New("connection reset"), service.KindUnavailable},
@@ -726,5 +727,17 @@ func TestUnavailableMessagesHideUpstreamDetail(t *testing.T) {
 		if err == nil || kindOf(t, err) != service.KindUnavailable || err.Error() != want {
 			t.Errorf("err = %v, want %q", err, want)
 		}
+	}
+}
+
+func TestAModelThatDoesNotMatchTheSchemaIsUnavailable(t *testing.T) {
+	e := newEnv(t, func(e *env) {
+		e.fang.PredictFn = func(context.Context, upstream.PredictRequest) (upstream.Prediction, error) {
+			return upstream.Prediction{}, &upstream.Error{Kind: upstream.KindPrecondition, Message: "model does not match the installed schema"}
+		}
+	})
+	_, err := e.svc.Predict(context.Background(), service.PredictInput{Rows: []map[string]any{{"a": 1.0}}})
+	if err == nil || kindOf(t, err) != service.KindUnavailable {
+		t.Fatalf("err = %v, want KindUnavailable", err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -475,5 +476,28 @@ func TestJobErrorsNeverExposeInternalDetail(t *testing.T) {
 				t.Fatalf("the detail must be logged with the job id: %s", logs.String())
 			}
 		})
+	}
+}
+
+func TestNonFiniteProgressFractionsBecomeNull(t *testing.T) {
+	g := newRig(t)
+	g.shaula.ExtractFn = func(_ context.Context, req upstream.ExtractRequest, onProgress func(upstream.Progress)) (upstream.FeatureSet, error) {
+		for _, v := range []float64{math.NaN(), math.Inf(1), 0.5} {
+			onProgress(upstream.Progress{Stage: "detrending", Message: "working", Fraction: &v})
+		}
+		return fake.DefaultFeatureSet(req), nil
+	}
+	job, _ := g.submit(t, jobs.KindExtract, nil)
+
+	g.runner.Execute(context.Background(), job.ID)
+
+	var fractions []*float64
+	for _, ev := range g.events(job.ID) {
+		if ev.Type == hub.TypeProgress {
+			fractions = append(fractions, ev.Fraction)
+		}
+	}
+	if len(fractions) != 3 || fractions[0] != nil || fractions[1] != nil || fractions[2] == nil || *fractions[2] != 0.5 {
+		t.Fatalf("fractions = %v, want nil, nil, 0.5", fractions)
 	}
 }

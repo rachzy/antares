@@ -63,6 +63,8 @@ type Service struct {
 	Clock       func() time.Time
 	Cfg         config.Config
 	Log         *slog.Logger
+	// VersionTimeout bounds each upstream Version call separately when positive.
+	VersionTimeout time.Duration
 
 	mu            sync.RWMutex
 	shaulaVersion string
@@ -76,10 +78,19 @@ func (s *Service) log() *slog.Logger {
 	return slog.Default()
 }
 
+func (s *Service) versionOf(ctx context.Context, get func(context.Context) (string, error)) (string, error) {
+	if s.VersionTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.VersionTimeout)
+		defer cancel()
+	}
+	return get(ctx)
+}
+
 func (s *Service) RefreshVersions(ctx context.Context) error {
 	var errs []error
 
-	if version, err := s.Shaula.Version(ctx); err != nil {
+	if version, err := s.versionOf(ctx, s.Shaula.Version); err != nil {
 		errs = append(errs, fmt.Errorf("shaula: %w", err))
 	} else {
 		s.mu.Lock()
@@ -95,7 +106,7 @@ func (s *Service) RefreshVersions(ctx context.Context) error {
 		}
 	}
 
-	if version, err := s.Fang.Version(ctx); err != nil {
+	if version, err := s.versionOf(ctx, s.Fang.Version); err != nil {
 		errs = append(errs, fmt.Errorf("fang: %w", err))
 	} else {
 		s.mu.Lock()
@@ -224,6 +235,9 @@ func (s *Service) fromUpstream(what string, err error) error {
 		case upstream.KindInvalid:
 			return errf(KindInvalid, "%s", ue.Message)
 		case upstream.KindPrecondition:
+			if what == "model" {
+				return errf(KindUnavailable, "%s", ue.Message)
+			}
 			return errf(KindUnprocessable, "%s", ue.Message)
 		case upstream.KindUnavailable:
 			s.log().Warn("upstream unavailable", "service", what, "error", ue.Message)

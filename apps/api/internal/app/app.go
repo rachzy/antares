@@ -67,8 +67,10 @@ func New(ctx context.Context, cfg config.Config, db *sql.DB, shaula upstream.Sha
 		Clock:       clock,
 		Cfg:         cfg,
 		Log:         log,
+
+		VersionTimeout: versionTimeout,
 	}
-	if err := refreshVersions(ctx, svc); err != nil {
+	if err := svc.RefreshVersions(ctx); err != nil {
 		log.Warn("upstream versions are not known yet", "error", err)
 	}
 
@@ -109,12 +111,6 @@ func New(ctx context.Context, cfg config.Config, db *sql.DB, shaula upstream.Sha
 	}, nil
 }
 
-func refreshVersions(ctx context.Context, svc *service.Service) error {
-	ctx, cancel := context.WithTimeout(ctx, versionTimeout)
-	defer cancel()
-	return svc.RefreshVersions(ctx)
-}
-
 func (a *App) Start() { go a.janitor() }
 
 func (a *App) janitor() {
@@ -138,7 +134,7 @@ func (a *App) Tick(ctx context.Context) {
 	} else if n > 0 {
 		a.log.Info("deleted expired jobs", "jobs", n)
 	}
-	if err := refreshVersions(ctx, a.svc); err != nil {
+	if err := a.svc.RefreshVersions(ctx); err != nil {
 		a.log.Warn("refresh upstream versions", "error", err)
 	}
 }
