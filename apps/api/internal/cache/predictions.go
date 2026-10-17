@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"antares/api/internal/db"
 	"antares/api/internal/store"
 )
 
@@ -23,15 +24,7 @@ type PredictionEntry struct {
 type PredictionCache struct{ DB *sql.DB }
 
 func (c PredictionCache) Get(ctx context.Context, featuresHash, modelRunID string) (PredictionEntry, bool, error) {
-	var (
-		body, created string
-		schema        int
-		target        sql.NullInt64
-	)
-	err := c.DB.QueryRowContext(ctx, `
-		SELECT predictions_json, schema_version, target_id, created_at FROM prediction_cache
-		WHERE features_hash = ? AND model_run_id = ?`, featuresHash, modelRunID,
-	).Scan(&body, &schema, &target, &created)
+	row, err := db.New(c.DB).GetPredictions(ctx, db.GetPredictionsParams{FeaturesHash: featuresHash, ModelRunID: modelRunID})
 	if errors.Is(err, sql.ErrNoRows) {
 		return PredictionEntry{}, false, nil
 	}
@@ -40,15 +33,15 @@ func (c PredictionCache) Get(ctx context.Context, featuresHash, modelRunID strin
 	}
 
 	var rows []map[string]any
-	if err := json.Unmarshal([]byte(body), &rows); err != nil {
+	if err := json.Unmarshal([]byte(row.PredictionsJson), &rows); err != nil {
 		return PredictionEntry{}, false, fmt.Errorf("decode cached predictions: %w", err)
 	}
-	entry := PredictionEntry{FeaturesHash: featuresHash, ModelRunID: modelRunID, SchemaVersion: schema, Rows: rows}
-	if target.Valid {
-		id := target.Int64
+	entry := PredictionEntry{FeaturesHash: featuresHash, ModelRunID: modelRunID, SchemaVersion: int(row.SchemaVersion), Rows: rows}
+	if row.TargetID.Valid {
+		id := row.TargetID.Int64
 		entry.TargetID = &id
 	}
-	entry.CreatedAt, _ = store.ParseTime(created)
+	entry.CreatedAt, _ = store.ParseTime(row.CreatedAt)
 	return entry, true, nil
 }
 
@@ -57,15 +50,12 @@ func (c PredictionCache) Put(ctx context.Context, e PredictionEntry) error {
 	if err != nil {
 		return err
 	}
-	var target any
+	var target sql.NullInt64
 	if e.TargetID != nil {
-		target = *e.TargetID
+		target = sql.NullInt64{Int64: *e.TargetID, Valid: true}
 	}
-	_, err = c.DB.ExecContext(ctx, `
-		INSERT INTO prediction_cache (features_hash, model_run_id, schema_version, predictions_json, target_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT (features_hash, model_run_id) DO UPDATE SET
-		  schema_version = excluded.schema_version, predictions_json = excluded.predictions_json`,
-		e.FeaturesHash, e.ModelRunID, e.SchemaVersion, string(body), target, store.FormatTime(e.CreatedAt))
-	return err
+	return db.New(c.DB).PutPredictions(ctx, db.PutPredictionsParams{
+		FeaturesHash: e.FeaturesHash, ModelRunID: e.ModelRunID, SchemaVersion: int64(e.SchemaVersion),
+		PredictionsJson: string(body), TargetID: target, CreatedAt: store.FormatTime(e.CreatedAt),
+	})
 }

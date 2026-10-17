@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"antares/api/internal/db"
 	"antares/api/internal/store"
 )
 
@@ -70,37 +71,24 @@ type Joined struct {
 
 type Store struct{ DB *sql.DB }
 
-const jobColumns = `id, dedupe_key, kind, state, target_id, request_json, result_json, error, created_at, started_at, finished_at`
-
-const joinedJobColumns = `j.id, j.dedupe_key, j.kind, j.state, j.target_id, j.request_json, j.result_json, j.error, j.created_at, j.started_at, j.finished_at`
-
-type rowScanner interface{ Scan(dest ...any) error }
-
-func scanJob(row rowScanner) (Job, error) {
-	var (
-		job                                Job
-		request, created                   string
-		result, errText, started, finished sql.NullString
-	)
-	if err := row.Scan(&job.ID, &job.DedupeKey, &job.Kind, &job.State, &job.TargetID,
-		&request, &result, &errText, &created, &started, &finished); err != nil {
-		return Job{}, err
+func fromRow(row db.Job) Job {
+	job := Job{
+		ID: row.ID, DedupeKey: row.DedupeKey, Kind: row.Kind, State: row.State, TargetID: row.TargetID,
+		Request: json.RawMessage(row.RequestJson), Error: row.Error.String,
 	}
-	job.Request = json.RawMessage(request)
-	if result.Valid {
-		job.Result = json.RawMessage(result.String)
+	if row.ResultJson.Valid {
+		job.Result = json.RawMessage(row.ResultJson.String)
 	}
-	job.Error = errText.String
-	job.CreatedAt, _ = store.ParseTime(created)
-	if started.Valid {
-		t, _ := store.ParseTime(started.String)
+	job.CreatedAt, _ = store.ParseTime(row.CreatedAt)
+	if row.StartedAt.Valid {
+		t, _ := store.ParseTime(row.StartedAt.String)
 		job.StartedAt = &t
 	}
-	if finished.Valid {
-		t, _ := store.ParseTime(finished.String)
+	if row.FinishedAt.Valid {
+		t, _ := store.ParseTime(row.FinishedAt.String)
 		job.FinishedAt = &t
 	}
-	return job, nil
+	return job
 }
 
 func isUniqueViolation(err error) bool {
@@ -130,20 +118,20 @@ func (s Store) joinOnce(ctx context.Context, in NewJob, token string, now time.T
 		return Joined{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	q := db.New(tx)
 
-	job, err := scanJob(tx.QueryRowContext(ctx,
-		`SELECT `+jobColumns+` FROM jobs WHERE dedupe_key = ? AND state IN ('queued', 'running')`, in.DedupeKey))
-	created := false
+	row, err := q.ActiveJobByKey(ctx, in.DedupeKey)
+	job, created := fromRow(row), false
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		id, err := newID()
 		if err != nil {
 			return Joined{}, err
 		}
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO jobs (id, dedupe_key, kind, state, target_id, request_json, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			id, in.DedupeKey, in.Kind, StateQueued, in.TargetID, string(in.Request), store.FormatTime(now)); err != nil {
+		if err := q.InsertJob(ctx, db.InsertJobParams{
+			ID: id, DedupeKey: in.DedupeKey, Kind: in.Kind, State: StateQueued,
+			TargetID: in.TargetID, RequestJson: string(in.Request), CreatedAt: store.FormatTime(now),
+		}); err != nil {
 			return Joined{}, err
 		}
 		job = Job{ID: id, DedupeKey: in.DedupeKey, Kind: in.Kind, State: StateQueued,
@@ -153,9 +141,10 @@ func (s Store) joinOnce(ctx context.Context, in NewJob, token string, now time.T
 		return Joined{}, err
 	}
 
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO subscriptions (token_hash, job_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
-		HashToken(token), job.ID, store.FormatTime(now), store.FormatTime(now.Add(retention))); err != nil {
+	if err := q.InsertSubscription(ctx, db.InsertSubscriptionParams{
+		TokenHash: HashToken(token), JobID: job.ID,
+		CreatedAt: store.FormatTime(now), ExpiresAt: store.FormatTime(now.Add(retention)),
+	}); err != nil {
 		return Joined{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -165,87 +154,65 @@ func (s Store) joinOnce(ctx context.Context, in NewJob, token string, now time.T
 }
 
 func (s Store) Get(ctx context.Context, id string) (Job, error) {
-	job, err := scanJob(s.DB.QueryRowContext(ctx, `SELECT `+jobColumns+` FROM jobs WHERE id = ?`, id))
+	row, err := db.New(s.DB).GetJob(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Job{}, ErrNotFound
 	}
-	return job, err
+	if err != nil {
+		return Job{}, err
+	}
+	return fromRow(row), nil
 }
 
 func (s Store) ByToken(ctx context.Context, token string, now time.Time) (Job, bool, error) {
-	job, err := scanJob(s.DB.QueryRowContext(ctx, `
-		SELECT `+joinedJobColumns+` FROM subscriptions s JOIN jobs j ON j.id = s.job_id
-		WHERE s.token_hash = ? AND s.expires_at > ?`, HashToken(token), store.FormatTime(now)))
+	row, err := db.New(s.DB).JobByToken(ctx, db.JobByTokenParams{TokenHash: HashToken(token), Now: store.FormatTime(now)})
 	if errors.Is(err, sql.ErrNoRows) {
 		return Job{}, false, nil
 	}
 	if err != nil {
 		return Job{}, false, err
 	}
-	return job, true, nil
+	return fromRow(row), true, nil
 }
 
 func (s Store) MarkRunning(ctx context.Context, id string, now time.Time) (bool, error) {
-	res, err := s.DB.ExecContext(ctx,
-		`UPDATE jobs SET state = ?, started_at = ? WHERE id = ? AND state = ?`,
-		StateRunning, store.FormatTime(now), id, StateQueued)
-	if err != nil {
-		return false, err
-	}
-	n, err := res.RowsAffected()
+	n, err := db.New(s.DB).MarkJobRunning(ctx, db.MarkJobRunningParams{
+		Running: StateRunning, Now: store.NullTime(now), ID: id, Queued: StateQueued,
+	})
 	return n > 0, err
 }
 
 func (s Store) Finish(ctx context.Context, id, state string, result json.RawMessage, errMsg string, now time.Time) error {
-	var resultValue, errorValue any
-	if len(result) > 0 {
-		resultValue = string(result)
-	}
-	if errMsg != "" {
-		errorValue = errMsg
-	}
-	_, err := s.DB.ExecContext(ctx, `
-		UPDATE jobs SET state = ?, result_json = ?, error = ?, finished_at = ?
-		WHERE id = ? AND state IN ('queued', 'running')`,
-		state, resultValue, errorValue, store.FormatTime(now), id)
-	return err
+	return db.New(s.DB).FinishJob(ctx, db.FinishJobParams{
+		State: state, ResultJson: store.NullString(string(result)), Error: store.NullString(errMsg),
+		FinishedAt: store.NullTime(now), ID: id,
+	})
 }
 
 func (s Store) AddMilestone(ctx context.Context, jobID string, seq int, stage, message string, at time.Time) error {
-	_, err := s.DB.ExecContext(ctx, `
-		INSERT INTO job_milestones (job_id, seq, stage, message, at) VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT (job_id, seq) DO NOTHING`, jobID, seq, stage, message, store.FormatTime(at))
-	return err
+	return db.New(s.DB).AddMilestone(ctx, db.AddMilestoneParams{
+		JobID: jobID, Seq: int64(seq), Stage: stage, Message: message, At: store.FormatTime(at),
+	})
 }
 
 func (s Store) Milestones(ctx context.Context, jobID string) ([]Milestone, error) {
-	rows, err := s.DB.QueryContext(ctx,
-		`SELECT seq, stage, message, at FROM job_milestones WHERE job_id = ? ORDER BY seq`, jobID)
+	rows, err := db.New(s.DB).Milestones(ctx, jobID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var out []Milestone
-	for rows.Next() {
-		var m Milestone
-		var at string
-		if err := rows.Scan(&m.Seq, &m.Stage, &m.Message, &at); err != nil {
-			return nil, err
-		}
-		m.At, _ = store.ParseTime(at)
+	for _, row := range rows {
+		m := Milestone{Seq: int(row.Seq), Stage: row.Stage, Message: row.Message}
+		m.At, _ = store.ParseTime(row.At)
 		out = append(out, m)
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 func (s Store) FailInterrupted(ctx context.Context, now time.Time) (int64, error) {
-	res, err := s.DB.ExecContext(ctx, `
-		UPDATE jobs SET state = ?, error = ?, finished_at = ? WHERE state IN ('queued', 'running')`,
-		StateFailed, InterruptedMessage, store.FormatTime(now))
-	if err != nil {
-		return 0, err
-	}
-	return res.RowsAffected()
+	return db.New(s.DB).FailActiveJobs(ctx, db.FailActiveJobsParams{
+		State: StateFailed, Error: store.NullString(InterruptedMessage), FinishedAt: store.NullTime(now),
+	})
 }
 
 func (s Store) DeleteExpired(ctx context.Context, now time.Time) (int64, error) {
@@ -254,17 +221,12 @@ func (s Store) DeleteExpired(ctx context.Context, now time.Time) (int64, error) 
 		return 0, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	q := db.New(tx)
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM subscriptions WHERE expires_at <= ?`, store.FormatTime(now)); err != nil {
+	if err := q.DeleteExpiredSubscriptions(ctx, store.FormatTime(now)); err != nil {
 		return 0, err
 	}
-	res, err := tx.ExecContext(ctx, `
-		DELETE FROM jobs WHERE state IN ('done', 'failed', 'dropped')
-		AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.job_id = jobs.id)`)
-	if err != nil {
-		return 0, err
-	}
-	n, err := res.RowsAffected()
+	n, err := q.DeleteUnsubscribedFinishedJobs(ctx)
 	if err != nil {
 		return 0, err
 	}

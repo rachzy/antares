@@ -20,6 +20,11 @@ func FormatTime(t time.Time) string { return t.UTC().Format(TimeLayout) }
 
 func ParseTime(s string) (time.Time, error) { return time.Parse(TimeLayout, s) }
 
+func NullTime(t time.Time) sql.NullString { return sql.NullString{String: FormatTime(t), Valid: true} }
+
+// NullString maps the empty string to NULL.
+func NullString(s string) sql.NullString { return sql.NullString{String: s, Valid: s != ""} }
+
 // _txlock=immediate makes every transaction take the write lock up front, so a
 // read-then-write transaction cannot fail with SQLITE_BUSY_SNAPSHOT under WAL.
 func Open(path string) (*sql.DB, error) {
