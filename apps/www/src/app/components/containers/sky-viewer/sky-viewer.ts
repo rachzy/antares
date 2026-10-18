@@ -15,8 +15,11 @@ import type { AladinInstance } from 'aladin-lite';
   styleUrl: './sky-viewer.css',
 })
 export class SkyViewer {
-  protected readonly skyDiv = viewChild.required<ElementRef<HTMLDivElement>>('skyDiv');
-  protected readonly selectedCoord = signal<{ ra: number; dec: number } | null>(null);
+  protected readonly skyDiv =
+    viewChild.required<ElementRef<HTMLDivElement>>('skyDiv');
+  protected readonly selectedCoord = signal<{ ra: number; dec: number } | null>(
+    null,
+  );
   protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
 
@@ -68,6 +71,8 @@ export class SkyViewer {
     };
 
     element.addEventListener('click', onClick);
-    this.destroyRef.onDestroy(() => element.removeEventListener('click', onClick));
+    this.destroyRef.onDestroy(() =>
+      element.removeEventListener('click', onClick),
+    );
   }
 }
