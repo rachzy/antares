@@ -33,7 +33,11 @@ export const PipelineStore = signalStore(
   withComputed((store, subscription = inject(SubscriptionStore)) => ({
     status: computed(() => subscription.state()),
     progress: computed(() => {
-      const last = subscription.events().findLast((e) => e.type === 'progress');
+      const last = subscription
+        .events()
+        .slice()
+        .reverse()
+        .find((e) => e.type === 'progress');
       return last
         ? { message: last.message, fraction: last.fraction, stage: last.stage }
         : null;

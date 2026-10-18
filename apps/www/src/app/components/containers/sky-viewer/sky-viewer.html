@@ -1,15 +1,102 @@
 <div #skyDiv class="h-screen w-screen"></div>
 
 @if (loadError()) {
-  <p class="absolute bottom-4 left-4 rounded bg-destructive/10 px-3 py-2 text-sm text-destructive">
+  <p
+    class="absolute bottom-4 left-4 rounded bg-destructive/10 px-3 py-2 text-sm text-destructive"
+  >
     Unable to load the sky viewer.
   </p>
 } @else if (loading()) {
-  <p class="absolute bottom-4 left-4 rounded bg-card px-3 py-2 text-sm text-card-foreground shadow">
+  <p
+    class="absolute bottom-4 left-4 rounded bg-card px-3 py-2 text-sm text-card-foreground shadow"
+  >
     Loading the sky&hellip;
   </p>
-} @else if (selectedCoord(); as coord) {
-  <div class="absolute bottom-4 left-4 rounded bg-card px-3 py-2 text-sm text-card-foreground shadow">
-    RA {{ coord.ra.toFixed(4) }}&deg;, Dec {{ coord.dec.toFixed(4) }}&deg;
-  </div>
+} @else if (panelVisible()) {
+  <section
+    class="absolute bottom-4 left-4 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded bg-card px-3 py-2 text-sm text-card-foreground shadow"
+  >
+    @if (notReady()) {
+      <p class="text-destructive">The API is not ready yet.</p>
+    }
+
+    @if (selectedCoord(); as coord) {
+      <p class="text-muted-foreground">
+        RA {{ coord.ra.toFixed(4) }}&deg;, Dec {{ coord.dec.toFixed(4) }}&deg;
+      </p>
+    }
+
+    @if (target.loading()) {
+      <p class="text-muted-foreground">Resolving target&hellip;</p>
+    } @else if (target.target(); as t) {
+      <div>
+        <p class="font-medium">{{ t.display_name }}</p>
+        <p class="text-xs text-muted-foreground">{{ t.designation }}</p>
+      </div>
+    }
+    @if (target.error(); as error) {
+      <p class="text-destructive">{{ error.message }}</p>
+    }
+
+    <button
+      hlmBtn
+      size="sm"
+      [disabled]="pipeline.loading() || !target.target()"
+      (click)="analyze()"
+    >
+      Analyze
+    </button>
+
+    @switch (pipeline.status()) {
+      @case ('queued') {
+        <p>Queued (position {{ pipeline.position() ?? '?' }})</p>
+      }
+      @case ('running') {
+        <p>Running</p>
+      }
+    }
+
+    @if (pipeline.loading() && pipeline.progress(); as progress) {
+      <div class="flex flex-col gap-1">
+        <p class="text-xs text-muted-foreground">
+          {{ progress.message }}
+          @if (percent() !== null) {
+            ({{ percent() }}%)
+          }
+        </p>
+        @if (percent() !== null) {
+          <div
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            [attr.aria-valuenow]="percent()"
+            class="h-1.5 w-full overflow-hidden rounded bg-muted"
+          >
+            <div
+              class="h-full bg-primary transition-all"
+              [style.width.%]="percent()"
+            ></div>
+          </div>
+        }
+      </div>
+    }
+
+    @if (topPrediction(); as fields) {
+      <dl class="grid grid-cols-2 gap-x-2 text-xs">
+        @for (field of fields; track field.key) {
+          <dt class="text-muted-foreground">{{ field.key }}</dt>
+          <dd class="text-right font-mono">{{ field.value }}</dd>
+        }
+      </dl>
+    }
+
+    @if (pipeline.error(); as error) {
+      <p class="text-destructive">
+        {{ error.message }}
+        @if (pipeline.retryAfterSeconds(); as seconds) {
+          Try again in {{ seconds }} s.
+        }
+      </p>
+    }
+  </section>
 }
