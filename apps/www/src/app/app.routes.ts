@@ -13,4 +13,5 @@ export const appRoutes: Route[] = [
       import('./components/pages/pipeline/pipeline').then((m) => m.Pipeline),
     children: pipelineRoutes,
   },
+  { path: '**', redirectTo: '' },
 ];

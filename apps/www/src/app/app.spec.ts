@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
 import { appRoutes } from './app.routes';
 import { ErrorToaster } from './components/ui/error-toaster';
@@ -54,5 +54,12 @@ describe('appRoutes', () => {
     expect(route.path).toBe('');
     const loadComponent = route.loadComponent as () => Promise<typeof Welcome>;
     await expect(loadComponent()).resolves.toBe(Welcome);
+  });
+
+  it('sends unknown urls to the welcome page', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter(appRoutes)] });
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/nope');
+    expect(router.url).toBe('/');
   });
 });

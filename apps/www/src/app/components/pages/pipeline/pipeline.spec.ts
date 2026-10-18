@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { BrnTooltip } from '@spartan-ng/brain/tooltip';
 import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { type Step, RunStore } from '../../../stores/run.store';
 import { Pipeline } from './pipeline';
 import { pipelineRoutes } from './pipeline.routes';
@@ -97,6 +98,34 @@ describe('Pipeline', () => {
   it('renders the routed page in an outlet', async () => {
     const el = await render();
     expect(el.querySelector('router-outlet')).not.toBeNull();
+  });
+});
+
+describe('Pipeline as a parent route', () => {
+  it('activates under the router and marks the routed step current', async () => {
+    const unlocked = signal<Step>('download');
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([
+          {
+            path: '',
+            component: Pipeline,
+            children: [
+              { path: 'download', children: [] },
+              { path: 'select', children: [] },
+            ],
+          },
+        ]),
+        { provide: RunStore, useValue: { unlocked, ready: signal(true) } },
+      ],
+    });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/download');
+    harness.detectChanges();
+    const current = (harness.routeNativeElement as HTMLElement).querySelector(
+      '[data-state="current"]',
+    );
+    expect(current?.textContent).toContain('Download light curves');
   });
 });
 

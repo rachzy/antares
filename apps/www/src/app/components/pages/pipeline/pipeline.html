@@ -9,7 +9,7 @@
           role="link"
           aria-disabled="true"
           hlmTooltip="Locked until the previous step finishes"
-          class="text-muted-foreground flex cursor-not-allowed items-center gap-2 text-sm opacity-45"
+          class="text-muted-foreground focus-visible:ring-ring/50 rounded-sm outline-none focus-visible:ring-[3px] flex cursor-not-allowed items-center gap-2 text-sm opacity-45"
         >
           <ng-container
             [ngTemplateOutlet]="content"
@@ -22,7 +22,7 @@
           [attr.data-state]="step.state"
           [routerLink]="['/', step.id]"
           [attr.aria-current]="step.state === 'current' ? 'step' : null"
-          class="flex items-center gap-2 text-sm"
+          class="focus-visible:ring-ring/50 rounded-sm outline-none focus-visible:ring-[3px] flex items-center gap-2 text-sm"
           [class.text-muted-foreground]="step.state !== 'current'"
         >
           <ng-container
@@ -67,7 +67,9 @@
         {{ step.number }}
       }
     </span>
-    {{ step.label }}
+    <span [class]="step.state === 'current' ? '' : 'max-sm:sr-only'">{{
+      step.label
+    }}</span>
   </ng-template>
   <main class="flex min-h-0 flex-1 flex-col">
     <router-outlet></router-outlet>

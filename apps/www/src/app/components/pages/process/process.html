@@ -7,7 +7,7 @@
     [done]="done()"
   />
 }
-<div class="flex items-center justify-end gap-2">
+<div class="flex flex-wrap items-center justify-end gap-2">
   @if (run.extract().status === 'failed') {
     <button hlmBtn variant="outline" type="button" (click)="run.retry()">
       Retry

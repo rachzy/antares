@@ -30,7 +30,7 @@
     </div>
   }
   @case ('failed') {
-    <div class="flex items-center justify-end gap-2">
+    <div class="flex flex-wrap items-center justify-end gap-2">
       <p class="text-destructive mr-auto text-sm">Scoring failed</p>
       <button hlmBtn variant="outline" type="button" (click)="run.retry()">
         Retry

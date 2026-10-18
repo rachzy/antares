@@ -32,9 +32,9 @@ export class Pipeline {
   private readonly path = toSignal(
     this.router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
-      map(() => this.route.firstChild?.snapshot.routeConfig?.path),
+      map(() => this.route.firstChild?.snapshot?.routeConfig?.path),
     ),
-    { initialValue: this.route.firstChild?.snapshot.routeConfig?.path },
+    { initialValue: this.route.firstChild?.snapshot?.routeConfig?.path },
   );
 
   protected readonly steps = computed(() => {

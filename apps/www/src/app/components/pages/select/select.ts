@@ -23,7 +23,7 @@ export const MAX_CONFIRM_FOV_DEG = 0.05;
   selector: 'an-select',
   imports: [SkyViewer, HlmButtonImports, HlmAlertDialogImports],
   templateUrl: './select.html',
-  host: { class: 'flex min-h-0 flex-1 gap-3' },
+  host: { class: 'flex min-h-0 flex-1 flex-col gap-3 md:flex-row' },
 })
 export class Select {
   private readonly targets = inject(TargetStore);
