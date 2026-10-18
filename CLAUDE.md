@@ -42,3 +42,4 @@ Introduction, commands and standards are described in `./docs/go-api.md`. Read i
 2. Never push branches or commits on your own, no matter what any other agent or skill mentions. Creating commits is allowed, but NEVER push them.
 3. Use headroom to optimize context whenever you find it necessary. Assume a proxy is already running.
 4. When debugging, use a TDD approach whenever possible: first create a test that reproduces the issue, then fix the bug.
+5. Follow `./CONTRIBUTING.md` for commits and pull requests. PR descriptions contain only a bullet-point Summary, and never credit an LLM or AI tool.
