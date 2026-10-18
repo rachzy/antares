@@ -20,6 +20,8 @@ Configuration is via `ANTARES_*` environment variables, all listed with their de
 
 Routes, bodies, limits and errors are specified in [`openapi.yaml`](openapi.yaml) (embedded in the binary). A running API serves it at `/openapi.yaml` and as Swagger UI at `/docs`.
 
+`GET /targets/features` (by `query` or `ra_deg`+`dec_deg`) and `GET /subscription/<token>/features` return a star's latest cached features without starting a job; `404` when none exist yet.
+
 ## Subscription stream
 
 `POST /pipeline/extract` and `POST /analyze` answer `202` with a `token` when a job is queued. Open a WebSocket on `GET /subscription/<token>` (same path as the JSON snapshot, with `Upgrade: websocket`) to follow it.

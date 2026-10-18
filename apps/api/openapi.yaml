@@ -100,6 +100,54 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
+  /targets/features:
+    get:
+      tags: [targets]
+      operationId: latestTargetFeatures
+      summary: Latest extracted features of a star, by name or position
+      description: |
+        Send either `query`, or both `ra_deg` and `dec_deg`, never both. Returns the most recent
+        features extracted for the star, whatever parameters produced them, and never starts an
+        extraction. A star with none yet is a `404`; start one with `/pipeline/extract`.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Query'
+        - name: mission
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Mission'
+        - name: ra_deg
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RA'
+        - name: dec_deg
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Dec'
+      responses:
+        '200':
+          description: The latest features of the star.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeaturesView'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
   /ml/runs:
     get:
       tags: [ml]
@@ -327,6 +375,35 @@ paths:
             text/plain:
               schema:
                 type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+
+  /subscription/{token}/features:
+    get:
+      tags: [jobs]
+      operationId: subscriptionFeatures
+      summary: Latest extracted features of a job's star
+      description: |
+        The most recent features extracted for the star of the subscription's job, which may be
+        newer than the job's own result. Never starts an extraction. A star with none is a `404`.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: The subscription token returned by `/pipeline/extract` or `/analyze`.
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_-]{43}$'
+          example: q3Zr8yN1vXo2bL5cT9hW0eK7mJ4sD6aF1gP8uR3iY0E
+      responses:
+        '200':
+          description: The latest features of the job's star.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeaturesView'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -693,6 +770,24 @@ components:
           format: int64
           minimum: 0
           description: The `seq` of the latest event; pass it as `since` when opening the stream.
+
+    FeaturesView:
+      type: object
+      description: The latest features extracted for a star, whatever parameters produced them.
+      required: [target, shaula_version, created_at, features]
+      properties:
+        target:
+          $ref: '#/components/schemas/Target'
+        shaula_version:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          description: When these features were extracted.
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureRow'
 
   requestBodies:
     Extract:
