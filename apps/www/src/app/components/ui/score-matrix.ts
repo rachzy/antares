@@ -1,14 +1,22 @@
 import { Component, computed, input } from '@angular/core';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { fixed, heat, periodLabel, type ScoredRow } from '../../utils/scoring';
+import {
+  decisionModel,
+  fixed,
+  heat,
+  modelScore,
+  periodLabel,
+  scoreColumns,
+  type ScoredRow,
+} from '../../utils/scoring';
 
 @Component({
   imports: [HlmTableImports],
   selector: 'an-score-matrix',
   template: `
-    <p class="text-muted-foreground mb-2 text-xs">
+    <p data-copy class="text-muted-foreground mb-2 text-xs">
       Each model scores every candidate; the run uses
-      <b class="text-foreground">stack</b> for the final decision.
+      <b class="text-foreground">{{ model() }}</b> for the final decision.
     </p>
     <div hlmTableContainer>
       <table hlmTable class="tabular-nums">
@@ -26,14 +34,14 @@ import { fixed, heat, periodLabel, type ScoredRow } from '../../utils/scoring';
             <tr hlmTr>
               <td hlmTd class="font-mono">{{ periodLabel(r.period) }}</td>
               @for (m of columns(); track m) {
-                @let p = r.models[m] ?? null;
+                @let p = modelScore(r, m, model());
                 <td hlmTd>
                   <div
                     data-cell
                     class="relative rounded px-1.5 py-2.5 text-center"
-                    [class.font-semibold]="m === 'stack'"
+                    [class.font-semibold]="m === model()"
                   >
-                    @if (p !== null) {
+                    @if (p >= 0) {
                       <span
                         data-heat
                         class="bg-primary absolute inset-0 rounded"
@@ -65,9 +73,11 @@ import { fixed, heat, periodLabel, type ScoredRow } from '../../utils/scoring';
 })
 export class ScoreMatrix {
   readonly rows = input.required<ScoredRow[]>();
-  readonly models = input.required<string[]>();
 
-  protected readonly columns = computed(() => [...this.models(), 'stack']);
+  private readonly source = computed(() => this.rows().map((r) => r.row));
+  protected readonly model = computed(() => decisionModel(this.source()));
+  protected readonly columns = computed(() => scoreColumns(this.source()));
+  protected readonly modelScore = modelScore;
   protected readonly periodLabel = periodLabel;
   protected readonly fixed = fixed;
   protected readonly heat = heat;

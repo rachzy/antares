@@ -30,7 +30,8 @@
     </div>
   }
   @case ('failed') {
-    <div class="flex justify-end">
+    <div class="flex items-center justify-end gap-2">
+      <p class="text-destructive mr-auto text-sm">Scoring failed</p>
       <button hlmBtn variant="outline" type="button" (click)="run.retry()">
         Retry
       </button>
@@ -41,15 +42,25 @@
       <p class="text-muted-foreground text-sm">No candidates scored</p>
     } @else {
       <div hlmTabs tab="ranking" class="min-h-0 flex-1">
-        <div hlmTabsList class="h-auto">
-          <button hlmTabsTrigger="ranking" class="px-3.5 py-1.5">
-            Ranking
-          </button>
-          <button hlmTabsTrigger="matrix" class="px-3.5 py-1.5">
-            Model matrix
-          </button>
-          <button hlmTabsTrigger="details" class="px-3.5 py-1.5">
-            Scoring details
+        <div class="flex items-center justify-between gap-2">
+          <div hlmTabsList class="h-auto">
+            <button hlmTabsTrigger="ranking" class="px-3.5 py-1.5">
+              Ranking
+            </button>
+            <button hlmTabsTrigger="matrix" class="px-3.5 py-1.5">
+              Model matrix
+            </button>
+            <button hlmTabsTrigger="details" class="px-3.5 py-1.5">
+              Scoring details
+            </button>
+          </div>
+          <button
+            hlmBtn
+            variant="secondary"
+            type="button"
+            (click)="run.startScore()"
+          >
+            Re-run scoring
           </button>
         </div>
         <div class="bg-card min-h-0 flex-1 overflow-auto rounded-[10px] p-3.5">
@@ -57,7 +68,7 @@
             <an-score-ranking [rows]="rows()" />
           </div>
           <div hlmTabsContent="matrix">
-            <an-score-matrix [rows]="rows()" [models]="models()" />
+            <an-score-matrix [rows]="rows()" />
           </div>
           <div hlmTabsContent="details">
             <an-score-details [rows]="rows()" [result]="score.result!" />

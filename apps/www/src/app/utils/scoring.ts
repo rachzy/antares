@@ -99,3 +99,23 @@ export function percent(p: number): number {
     ? Math.round(Math.min(1, Math.max(0, p)) * 1000) / 10
     : 0;
 }
+
+export function decisionModel(rows: PredictionRow[]): string {
+  const name = rows.find((r) => typeof r['model_name'] === 'string')?.[
+    'model_name'
+  ];
+  return typeof name === 'string' && name ? name : 'stack';
+}
+
+export function scoreColumns(rows: PredictionRow[]): string[] {
+  const columns = modelNames(rows);
+  if (rows.some((r) => 'prob_stack' in r)) columns.push('stack');
+  const model = decisionModel(rows);
+  return columns.includes(model) ? columns : [...columns, model];
+}
+
+export function modelScore(r: ScoredRow, name: string, model: string): number {
+  const p = r.models[name];
+  if (typeof p === 'number') return p;
+  return name === model ? r.probability : NaN;
+}

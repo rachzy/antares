@@ -142,10 +142,18 @@ describe('Score', () => {
     expect(startScore).toHaveBeenCalledOnce();
   });
 
+  it('re-runs scoring from the done page', async () => {
+    done([row(0.4)]);
+    const { button } = await mount();
+    button('Re-run scoring')?.click();
+    expect(startScore).toHaveBeenCalledOnce();
+  });
+
   it('offers Retry when scoring failed', async () => {
     score.set({ ...idle, status: 'failed', events: [ev] });
     const { el, button } = await mount();
     expect(el.querySelector('[role="tablist"]')).toBeNull();
+    expect(el.textContent).toContain('Scoring failed');
     button('Retry')?.click();
     expect(retry).toHaveBeenCalledOnce();
   });

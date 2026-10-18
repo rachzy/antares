@@ -124,6 +124,43 @@ describe('ScoreDetails', () => {
     );
   });
 
+  it('lists every base model and stack when the decision model is lightgbm', async () => {
+    const lgbm = predictions.map((r) => ({
+      ...r,
+      model_name: 'lightgbm',
+      potential_probability: 0.68,
+    }));
+    const fixture = TestBed.createComponent(ScoreDetails);
+    fixture.componentRef.setInput('rows', rank(lgbm));
+    fixture.componentRef.setInput('result', result(true));
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const rows = Array.from(
+      el.querySelectorAll('[data-table="models"] tbody tr'),
+    );
+    expect(rows).toHaveLength(8);
+    const names = rows.map((r) =>
+      text(r.querySelector('td:nth-last-child(4)')),
+    );
+    expect(names.slice(0, 4)).toEqual([
+      'lightgbm',
+      'catboost',
+      'extra_trees',
+      'stack',
+    ]);
+    const used = rows.filter((r) =>
+      r.querySelector('[data-fill]')?.classList.contains('bg-primary'),
+    );
+    expect(
+      used.map((r) => text(r.querySelector('td:nth-last-child(4)'))),
+    ).toEqual(['lightgbm', 'lightgbm']);
+    expect(used.every((r) => text(r)?.includes('Used for decision'))).toBe(
+      true,
+    );
+    expect(rows.map(text)).toContain('stack 0.71');
+    expect(text(rows[3])).not.toContain('Used for decision');
+  });
+
   it('shows the first 7 features with a dash for null and a Show all toggle', async () => {
     const { fixture, el, table } = await mount();
     const body = () =>

@@ -1,14 +1,17 @@
 import type { PredictionRow } from '../api/api.types';
 import {
   DASH,
+  decisionModel,
   featureNames,
   fixed,
   heat,
   margin,
   modelNames,
+  modelScore,
   percent,
   periodLabel,
   rank,
+  scoreColumns,
   type ScoredRow,
 } from './scoring';
 
@@ -147,5 +150,48 @@ describe('formatting', () => {
     expect(percent(0.57)).toBe(57);
     expect(percent(NaN)).toBe(0);
     expect(percent(1.4)).toBe(100);
+  });
+});
+
+describe('decision model columns', () => {
+  it('names the decision model from model_name, defaulting to stack', () => {
+    expect(decisionModel([row(0.4, { model_name: 'lightgbm' })])).toBe(
+      'lightgbm',
+    );
+    expect(decisionModel([{ potential_probability: 0.4 }])).toBe('stack');
+  });
+
+  it('lists base models plus stack when present', () => {
+    expect(scoreColumns([row(0.4, { model_name: 'lightgbm' })])).toEqual([
+      'lightgbm',
+      'catboost',
+      'extra_trees',
+      'stack',
+    ]);
+  });
+
+  it('drops stack when no row has prob_stack', () => {
+    const noStack = row(0.4, { model_name: 'lightgbm' });
+    delete noStack['prob_stack'];
+    expect(scoreColumns([noStack])).toEqual([
+      'lightgbm',
+      'catboost',
+      'extra_trees',
+    ]);
+  });
+
+  it('adds the decision model when it has no prob_ column', () => {
+    expect(
+      scoreColumns([{ prob_lightgbm: 0.3, potential_probability: 0.4 }]),
+    ).toEqual(['lightgbm', 'stack']);
+  });
+
+  it('falls back to potential_probability for the decision model only', () => {
+    const [scored] = rank([
+      { prob_lightgbm: null, potential_probability: 0.4 },
+    ]);
+    expect(modelScore(scored, 'stack', 'stack')).toBe(0.4);
+    expect(modelScore(scored, 'lightgbm', 'stack')).toBeNaN();
+    expect(modelScore(scored, 'catboost', 'stack')).toBeNaN();
   });
 });

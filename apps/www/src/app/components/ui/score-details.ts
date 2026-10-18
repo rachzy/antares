@@ -4,12 +4,14 @@ import { HlmTableImports } from '@spartan-ng/helm/table';
 import type { JobResult } from '../../api/api.types';
 import {
   DASH,
+  decisionModel,
   featureNames,
   fixed,
   margin,
-  modelNames,
+  modelScore,
   percent,
   periodLabel,
+  scoreColumns,
   type ScoredRow,
 } from '../../utils/scoring';
 
@@ -127,7 +129,7 @@ const signed = (value: number): string => {
                       [class]="
                         m.used ? 'bg-primary' : 'bg-muted-foreground opacity-50'
                       "
-                      [style.width.%]="percent(m.p ?? NaN)"
+                      [style.width.%]="percent(m.p)"
                     ></div>
                     @if (group.threshold >= 0) {
                       <div
@@ -217,7 +219,6 @@ export class ScoreDetails {
   protected readonly all = signal(false);
   protected readonly limit = FEATURES;
   protected readonly dash = DASH;
-  protected readonly NaN = NaN;
   protected readonly fixed = fixed;
   protected readonly percent = percent;
   protected readonly periodLabel = periodLabel;
@@ -225,8 +226,8 @@ export class ScoreDetails {
 
   private readonly first = computed(() => this.rows()[0]);
 
-  protected readonly model = computed(
-    () => text(this.first()?.row['model_name']) ?? 'stack',
+  protected readonly model = computed(() =>
+    decisionModel(this.rows().map((r) => r.row)),
   );
   protected readonly threshold = computed(() => this.first()?.threshold ?? NaN);
 
@@ -272,22 +273,15 @@ export class ScoreDetails {
 
   protected readonly groups = computed(() => {
     const model = this.model();
-    const base = modelNames(this.rows().map((r) => r.row));
-    const names = base.includes(model) ? base : [...base, model];
+    const names = scoreColumns(this.rows().map((r) => r.row));
     return this.rows().map((r) => ({
       period: periodLabel(r.period),
       threshold: r.threshold,
-      models: names.map((name) => {
-        const used = name === model;
-        const p = r.models[name] ?? null;
-        return {
-          name,
-          used,
-          p:
-            p ??
-            (used && Number.isFinite(r.probability) ? r.probability : null),
-        };
-      }),
+      models: names.map((name) => ({
+        name,
+        used: name === model,
+        p: modelScore(r, name, model),
+      })),
     }));
   });
 

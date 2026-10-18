@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PredictionRow } from '../../api/api.types';
-import { heat, modelNames, rank } from '../../utils/scoring';
+import { heat, rank } from '../../utils/scoring';
 import { ScoreMatrix } from './score-matrix';
 
 const rows: PredictionRow[] = [
@@ -30,7 +30,6 @@ describe('ScoreMatrix', () => {
   const mount = async (data: PredictionRow[]) => {
     const fixture = TestBed.createComponent(ScoreMatrix);
     fixture.componentRef.setInput('rows', rank(data));
-    fixture.componentRef.setInput('models', modelNames(data));
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
     const heads = () =>
@@ -73,10 +72,42 @@ describe('ScoreMatrix', () => {
     expect(tags).toEqual(['POTENTIAL', 'UNLIKELY']);
   });
 
-  it('has no model columns for rows without prob_ keys', async () => {
-    const { heads } = await mount([
+  it('has no base model columns for rows without prob_ keys', async () => {
+    const { el, heads } = await mount([
       { period_days: 1, potential_probability: 0.2 },
     ]);
     expect(heads()).toEqual(['Candidate', 'stack', 'Decision']);
+    expect(el.querySelector('[data-cell]')?.textContent?.trim()).toBe('0.20');
+  });
+
+  it('drops the stack column without prob_stack and names the decision model', async () => {
+    const { el, heads } = await mount(
+      rows.map((r) => {
+        const copy: PredictionRow = { ...r, model_name: 'lightgbm' };
+        delete copy['prob_stack'];
+        return copy;
+      }),
+    );
+    expect(heads()).toEqual([
+      'Candidate',
+      'lightgbm',
+      'catboost',
+      'extra_trees',
+      'Decision',
+    ]);
+    expect(el.querySelector('[data-copy]')?.textContent).toContain(
+      'the run uses lightgbm for the final decision',
+    );
+    const bold = el.querySelectorAll('tbody tr:first-child .font-semibold');
+    expect(Array.from(bold).map((c) => c.textContent?.trim())).toEqual([
+      '0.68',
+    ]);
+  });
+
+  it('keeps stack as a column when the decision model is a base model', async () => {
+    const { heads } = await mount(
+      rows.map((r) => ({ ...r, model_name: 'lightgbm' })),
+    );
+    expect(heads()).toContain('stack');
   });
 });
