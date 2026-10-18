@@ -1,6 +1,10 @@
 declare module 'aladin-lite' {
   export interface AladinInstance {
-    pix2world(x: number, y: number, frame?: string): [number, number] | null | undefined;
+    pix2world(
+      x: number,
+      y: number,
+      frame?: string,
+    ): [number, number] | null | undefined;
   }
 
   export interface AladinOptions {
