@@ -1,0 +1,23 @@
+<main class="welcome" [class.welcome--expanded]="expanded()">
+  <header class="welcome__intro">
+    <h1 class="welcome__title">Antares</h1>
+    <p class="welcome__lede">
+      A tool for hunting exoplanets across the stars, watching for the faint dip
+      in starlight when a world crosses in front of its sun.
+    </p>
+  </header>
+
+  <div class="welcome__stage">
+    <an-sky-viewer class="welcome__sky" />
+
+    @if (!expanded()) {
+    <button type="button" class="welcome__expand" (click)="expand()">
+      <span class="welcome__expand-label">Look closer</span>
+    </button>
+    } @else {
+    <button type="button" class="welcome__collapse" (click)="collapse()">
+      <span aria-hidden="true">&larr;</span> Back
+    </button>
+    }
+  </div>
+</main>

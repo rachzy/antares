@@ -11,6 +11,7 @@ declare module 'aladin-lite' {
     survey?: string;
     fov?: number;
     cooFrame?: string;
+    mode?: 'light' | 'dark';
   }
 
   export interface AladinStatic {

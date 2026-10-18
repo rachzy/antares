@@ -49,6 +49,7 @@ describe('SkyViewer', () => {
         survey: 'P/DSS2/color',
         fov: 60,
         cooFrame: 'equatorial',
+        mode: 'dark',
       });
     });
   });

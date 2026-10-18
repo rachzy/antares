@@ -4,8 +4,6 @@ export const appRoutes: Route[] = [
   {
     path: '',
     loadComponent: () =>
-      import('./components/containers/sky-viewer/sky-viewer').then(
-        (m) => m.SkyViewer,
-      ),
+      import('./components/pages/welcome/welcome').then((m) => m.Welcome),
   },
 ];

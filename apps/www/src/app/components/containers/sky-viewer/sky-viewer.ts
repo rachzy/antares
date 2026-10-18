@@ -37,6 +37,7 @@ export class SkyViewer {
         survey: 'P/DSS2/color',
         fov: 60,
         cooFrame: 'equatorial',
+        mode: 'dark',
       });
       this.loading.set(false);
       this.attachClickHandler(aladin);
