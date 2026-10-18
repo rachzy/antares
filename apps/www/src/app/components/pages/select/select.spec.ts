@@ -11,6 +11,7 @@ import { MAX_CONFIRM_FOV_DEG, Select } from './select';
 
 const callbacks = new Map<string, () => void>();
 let fov = 60;
+let center: [number, number] = [291.03, 48.14];
 
 vi.mock('aladin-lite', () => ({
   default: {
@@ -20,7 +21,7 @@ vi.mock('aladin-lite', () => ({
     aladin: () => ({
       pix2world: vi.fn(),
       getFov: () => [fov, fov / 2],
-      getRaDec: () => [291.03, 48.14],
+      getRaDec: () => center,
       on: (event: string, cb: () => void) => callbacks.set(event, cb),
     }),
   },
@@ -40,17 +41,20 @@ describe('Select', () => {
   const loading = signal(false);
   const error = signal<ApiRequestError | null>(null);
   const resolveByPosition = vi.fn();
-  const confirm = vi.fn();
+  const confirmed = signal<Target | null>(null);
+  const confirm = vi.fn((t: Target) => confirmed.set(t));
   const startExtract = vi.fn();
 
   beforeEach(async () => {
     callbacks.clear();
     fov = 60;
+    center = [291.03, 48.14];
+    confirmed.set(null);
     target.set(null);
     loading.set(false);
     error.set(null);
     resolveByPosition.mockReset();
-    confirm.mockReset();
+    confirm.mockClear();
     startExtract.mockReset();
 
     await TestBed.configureTestingModule({
@@ -61,7 +65,10 @@ describe('Select', () => {
           provide: TargetStore,
           useValue: { target, loading, error, resolveByPosition },
         },
-        { provide: RunStore, useValue: { confirm, startExtract } },
+        {
+          provide: RunStore,
+          useValue: { star: confirmed, confirm, startExtract },
+        },
       ],
     }).compileComponents();
   });
@@ -83,7 +90,7 @@ describe('Select', () => {
     return { fixture, el, zoom, button };
   };
 
-  const confirmed = async () => {
+  const hit = async () => {
     const page = await mount();
     await page.zoom(MAX_CONFIRM_FOV_DEG / 2);
     page.button('Confirm star')?.click();
@@ -114,6 +121,38 @@ describe('Select', () => {
     expect(resolveByPosition).toHaveBeenCalledWith(291.03, 48.14);
   });
 
+  it('reads the sky center at click time', async () => {
+    const { zoom, button } = await mount();
+    await zoom(MAX_CONFIRM_FOV_DEG / 2);
+    center = [10.5, -20.25];
+    button('Confirm star')?.click();
+    expect(resolveByPosition).toHaveBeenCalledWith(10.5, -20.25);
+  });
+
+  it('shows the already confirmed star on return', async () => {
+    confirmed.set(star);
+    const { el, button } = await mount();
+    expect(el.querySelector('h2')?.textContent).toContain('Kepler-1 b');
+    expect(button('Extract lightcurve features')).toBeTruthy();
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('replaces the card when another star is confirmed', async () => {
+    const page = await hit();
+    const other: Target = {
+      ...star,
+      display_name: 'Kepler-2',
+      designation: 'KIC 2',
+    };
+    page.button('Confirm star')?.click();
+    target.set(null);
+    target.set(other);
+    await page.fixture.whenStable();
+    expect(page.el.querySelector('h2')?.textContent).toContain('Kepler-2');
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(confirm).toHaveBeenLastCalledWith(other);
+  });
+
   it('disables Confirm while resolving', async () => {
     const { fixture, zoom, button } = await mount();
     await zoom(MAX_CONFIRM_FOV_DEG / 2);
@@ -133,7 +172,7 @@ describe('Select', () => {
   });
 
   it('shows the star card and confirms the star once on a hit', async () => {
-    const { el, button } = await confirmed();
+    const { el, button } = await hit();
     expect(el.querySelector('h2')?.textContent).toContain('Kepler-1 b');
     expect(el.textContent).toContain('KIC 11446443');
     const link = button('View on Stellar Catalog') as HTMLAnchorElement;
@@ -169,7 +208,7 @@ describe('Select', () => {
     const navigate = vi
       .spyOn(TestBed.inject(Router), 'navigate')
       .mockResolvedValue(true);
-    const { button } = await confirmed();
+    const { button } = await hit();
     button('Extract lightcurve features')?.click();
     expect(startExtract).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith(['/download']);

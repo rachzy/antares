@@ -9,7 +9,6 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
-import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
@@ -30,7 +29,7 @@ export class Select {
   private readonly sky = viewChild(SkyViewer);
   private readonly awaiting = signal(false);
 
-  protected readonly star = signal<Target | null>(null);
+  protected readonly star = this.run.star;
   protected readonly tooWide = computed(
     () => (this.sky()?.fovDeg() ?? Infinity) > MAX_CONFIRM_FOV_DEG,
   );
@@ -53,7 +52,6 @@ export class Select {
       if (!untracked(this.awaiting)) return;
       if (target) {
         this.awaiting.set(false);
-        this.star.set(target);
         untracked(() => this.run.confirm(target));
       } else if (error) {
         this.awaiting.set(false);

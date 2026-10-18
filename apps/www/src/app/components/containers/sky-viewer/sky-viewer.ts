@@ -27,22 +27,35 @@ export class SkyViewer {
   private readonly fov = signal(INITIAL_FOV_DEG);
   readonly fovDeg = this.fov.asReadonly();
 
-  private readonly destroyRef = inject(DestroyRef);
   private aladin: AladinInstance | null = null;
+  private destroyed = false;
+  private element: HTMLDivElement | null = null;
+  private detachClick: (() => void) | null = null;
 
   constructor() {
-    afterNextRender(() => void this.initAladin());
+    afterNextRender(() => {
+      this.element = this.skyDiv().nativeElement;
+      void this.initAladin(this.element);
+    });
+    inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
+      this.detachClick?.();
+      this.aladin = null;
+      this.element?.replaceChildren();
+    });
   }
 
   center(): [number, number] | null {
     return this.aladin?.getRaDec() ?? null;
   }
 
-  private async initAladin(): Promise<void> {
+  private async initAladin(element: HTMLDivElement): Promise<void> {
     try {
       const { default: A } = await import('aladin-lite');
+      if (this.destroyed) return;
       await A.init;
-      const aladin = A.aladin(this.skyDiv().nativeElement, {
+      if (this.destroyed) return;
+      const aladin = A.aladin(element, {
         survey: 'P/DSS2/color',
         fov: INITIAL_FOV_DEG,
         cooFrame: 'equatorial',
@@ -54,15 +67,18 @@ export class SkyViewer {
       aladin.on('zoomChanged', () => this.fov.set(aladin.getFov()[0]));
       this.aladin = aladin;
       this.loading.set(false);
-      this.attachClickHandler(aladin);
+      this.attachClickHandler(aladin, element);
     } catch (error) {
+      if (this.destroyed) return;
       console.error('Failed to initialize the sky viewer', error);
       this.loadError.set(true);
     }
   }
 
-  private attachClickHandler(aladin: AladinInstance): void {
-    const element = this.skyDiv().nativeElement;
+  private attachClickHandler(
+    aladin: AladinInstance,
+    element: HTMLDivElement,
+  ): void {
     const onClick = (event: MouseEvent) => {
       if (!(event.target instanceof HTMLCanvasElement)) {
         return;
@@ -86,8 +102,6 @@ export class SkyViewer {
     };
 
     element.addEventListener('click', onClick);
-    this.destroyRef.onDestroy(() =>
-      element.removeEventListener('click', onClick),
-    );
+    this.detachClick = () => element.removeEventListener('click', onClick);
   }
 }

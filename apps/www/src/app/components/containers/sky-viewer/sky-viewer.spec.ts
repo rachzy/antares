@@ -191,6 +191,39 @@ describe('SkyViewer', () => {
     expect(pix2worldMock).not.toHaveBeenCalled();
   });
 
+  it('does not create Aladin when destroyed before init finishes', async () => {
+    const consoleError = vi.spyOn(console, 'error');
+    let resolveInit!: () => void;
+    initPromise = new Promise((resolve) => {
+      resolveInit = resolve;
+    });
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    fixture.destroy();
+
+    resolveInit();
+    await initPromise;
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(aladinMock).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('empties the sky and forgets Aladin on destroy', async () => {
+    getRaDecMock.mockReturnValue([1, 2]);
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
+    const skyDiv = fixture.nativeElement.querySelector('div') as HTMLDivElement;
+    skyDiv.appendChild(document.createElement('canvas'));
+
+    fixture.destroy();
+
+    expect(skyDiv.childElementCount).toBe(0);
+    expect(fixture.componentInstance.center()).toBeNull();
+  });
+
   it('shows a fallback message when Aladin fails to initialize', async () => {
     initPromise = Promise.reject(new Error('network error'));
     initPromise.catch(() => {
