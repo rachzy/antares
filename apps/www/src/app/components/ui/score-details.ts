@@ -37,6 +37,7 @@ const signed = (value: number): string => {
 @Component({
   imports: [HlmButtonImports, HlmTableImports],
   selector: 'an-score-details',
+  host: { class: 'block w-full' },
   template: `
     <div class="mb-3.5 flex flex-wrap gap-2">
       @for (chip of chips(); track chip.label) {

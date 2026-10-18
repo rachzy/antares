@@ -1,5 +1,7 @@
-<div class="bg-background text-foreground flex h-screen flex-col gap-4 p-4">
-  <nav aria-label="Pipeline" class="flex items-center">
+<div
+  class="bg-background text-foreground flex h-screen flex-col gap-4 p-4 pt-14"
+>
+  <nav aria-label="Pipeline" class="flex items-center pr-10">
     @for (step of steps(); track step.id; let last = $last) {
       @if (step.state === 'locked') {
         <span
@@ -9,6 +11,7 @@
           role="link"
           aria-disabled="true"
           hlmTooltip="Locked until the previous step finishes"
+          position="bottom"
           class="text-muted-foreground focus-visible:ring-ring/50 rounded-sm outline-none focus-visible:ring-[3px] flex cursor-not-allowed items-center gap-2 text-sm opacity-45"
         >
           <ng-container

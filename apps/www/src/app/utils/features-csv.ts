@@ -14,3 +14,15 @@ export function featuresToCsv(rows: FeatureRow[]): string {
     .map((line) => line.map(cell).join(',') + '\r\n')
     .join('');
 }
+
+export function csvFilename(
+  star: { display_name?: string; ra_deg: number; dec_deg: number } | null,
+): string {
+  const name = star?.display_name?.trim();
+  const label = name
+    ? name.replace(/[^\p{L}\p{N}._-]+/gu, '-').replace(/^-+|-+$/g, '')
+    : star
+      ? `${star.ra_deg.toFixed(5)}_${star.dec_deg.toFixed(5)}`
+      : '';
+  return `${label ? `${label}-` : ''}predictions.csv`;
+}

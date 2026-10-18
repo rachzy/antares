@@ -7,6 +7,13 @@ declare module 'aladin-lite' {
     ): [number, number] | null | undefined;
     getFov(): [number, number];
     getRaDec(): [number, number];
+    gotoObject(
+      target: string,
+      callbacks?: {
+        success?: (raDec: [number, number]) => void;
+        error?: () => void;
+      },
+    ): void;
     on(event: 'zoomChanged' | 'positionChanged', cb: () => void): void;
   }
 

@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 import { RunStore } from '../../../stores/run.store';
-import { featuresToCsv } from '../../../utils/features-csv';
+import { csvFilename, featuresToCsv } from '../../../utils/features-csv';
 import { JobLog, splitByStage } from '../../ui/job-log/job-log';
 
 export const SCORE_TOOLTIP =
@@ -39,7 +39,7 @@ export class Process {
     );
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'features.csv';
+    a.download = csvFilename(this.run.star());
     document.body.append(a);
     a.click();
     a.remove();

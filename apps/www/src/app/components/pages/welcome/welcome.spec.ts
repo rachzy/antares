@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { BrandState } from '../../ui/brand';
 import { Welcome } from './welcome';
 
 vi.mock('aladin-lite', () => ({
@@ -24,13 +25,13 @@ describe('Welcome', () => {
     }).compileComponents();
   });
 
-  it('introduces Antares', async () => {
+  it('explains what Antares does', async () => {
     const fixture = TestBed.createComponent(Welcome);
     await fixture.whenStable();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.welcome__title')?.textContent).toBe(
-      'Antares',
+    expect(compiled.querySelector('.welcome__lede')?.textContent).toContain(
+      'hunting exoplanets',
     );
   });
 
@@ -44,7 +45,9 @@ describe('Welcome', () => {
     );
   });
 
-  it('opens the select page when the stage is clicked', async () => {
+  it('fades the description and lifts the title, then opens the select page', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: false }));
+    const brand = TestBed.inject(BrandState);
     const navigate = vi
       .spyOn(TestBed.inject(Router), 'navigate')
       .mockResolvedValue(true);
@@ -52,8 +55,18 @@ describe('Welcome', () => {
     await fixture.whenStable();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    vi.useFakeTimers();
     compiled.querySelector<HTMLButtonElement>('.welcome__expand')?.click();
+    fixture.detectChanges();
 
+    expect(brand.leaving()).toBe(true);
+    expect(compiled.querySelector('.welcome__lede--leaving')).not.toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(700);
     expect(navigate).toHaveBeenCalledWith(['/select']);
+    expect(brand.leaving()).toBe(false);
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 });

@@ -16,19 +16,9 @@
   position: relative;
   z-index: 1;
   max-width: 34rem;
-  margin-top: clamp(3rem, 12vh, 7rem);
+  margin-top: calc(clamp(3rem, 12vh, 7rem) + clamp(3.5rem, 11vw, 6.5rem));
   padding-inline: 1.5rem;
   text-align: center;
-}
-
-.welcome__title {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(3.5rem, 11vw, 6.5rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  color: var(--foreground);
 }
 
 .welcome__lede {
@@ -36,6 +26,14 @@
   font-size: clamp(1rem, 1.6vw, 1.125rem);
   line-height: 1.6;
   color: var(--muted-foreground);
+  transition:
+    opacity 400ms ease,
+    transform 500ms ease;
+}
+
+.welcome__lede--leaving {
+  opacity: 0;
+  transform: translateY(-1rem);
 }
 
 .welcome__stage {
@@ -105,6 +103,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .welcome__stage,
+  .welcome__lede,
   .welcome__expand-label {
     transition: none;
   }
@@ -112,7 +111,7 @@
 
 @media (max-width: 640px) {
   .welcome__intro {
-    margin-top: 2.5rem;
+    margin-top: calc(2.5rem + clamp(3.5rem, 11vw, 6.5rem));
   }
 
   .welcome__stage {

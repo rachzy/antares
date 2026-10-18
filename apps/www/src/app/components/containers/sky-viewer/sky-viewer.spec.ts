@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { SkyViewer } from './sky-viewer';
+import { SkyViewer, SURVEY_URL } from './sky-viewer';
 
 const aladinMock = vi.fn();
 const pix2worldMock = vi.fn();
 const getFovMock = vi.fn();
 const getRaDecMock = vi.fn();
+const gotoObjectMock = vi.fn();
 const callbacks = new Map<string, () => void>();
 let initPromise: Promise<void>;
 
@@ -19,6 +20,7 @@ vi.mock('aladin-lite', () => ({
         pix2world: pix2worldMock,
         getFov: getFovMock,
         getRaDec: getRaDecMock,
+        gotoObject: gotoObjectMock,
         on: (event: string, cb: () => void) => callbacks.set(event, cb),
       };
     },
@@ -43,6 +45,7 @@ describe('SkyViewer', () => {
     pix2worldMock.mockReset();
     getFovMock.mockReset();
     getRaDecMock.mockReset();
+    gotoObjectMock.mockReset();
     callbacks.clear();
     initPromise = Promise.resolve();
 
@@ -51,13 +54,17 @@ describe('SkyViewer', () => {
     }).compileComponents();
   });
 
+  it('loads the survey from its own URL so no registry mirror is probed', () => {
+    expect(SURVEY_URL).toMatch(/^https:\/\/alasky\.cds\.unistra\.fr\//);
+  });
+
   it('initializes Aladin with the default survey', async () => {
     const fixture = TestBed.createComponent(SkyViewer);
     await fixture.whenStable();
 
     await vi.waitFor(() => {
       expect(aladinMock).toHaveBeenCalledWith(expect.any(HTMLDivElement), {
-        survey: 'P/DSS2/color',
+        survey: SURVEY_URL,
         fov: 60,
         cooFrame: 'equatorial',
         mode: 'dark',
@@ -237,5 +244,29 @@ describe('SkyViewer', () => {
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.textContent).toContain('Unable to load the sky viewer.');
     });
+  });
+
+  it('resolves goto with the search outcome', async () => {
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
+    gotoObjectMock.mockImplementationOnce((_q, cb) => cb.success([1, 2]));
+    await expect(fixture.componentInstance.goto('Kepler-186')).resolves.toBe(
+      true,
+    );
+    gotoObjectMock.mockImplementationOnce((_q, cb) => cb.error());
+    await expect(fixture.componentInstance.goto('nowhere')).resolves.toBe(
+      false,
+    );
+    expect(gotoObjectMock).toHaveBeenCalledWith(
+      'Kepler-186',
+      expect.any(Object),
+    );
+  });
+
+  it('reports a failed goto before Aladin is ready', async () => {
+    initPromise = new Promise(() => undefined);
+    const fixture = TestBed.createComponent(SkyViewer);
+    await expect(fixture.componentInstance.goto('x')).resolves.toBe(false);
   });
 });

@@ -11,6 +11,7 @@ import {
 @Component({
   imports: [HlmTableImports],
   selector: 'an-score-ranking',
+  host: { class: 'block w-full' },
   template: `
     <div hlmTableContainer>
       <table hlmTable class="tabular-nums">

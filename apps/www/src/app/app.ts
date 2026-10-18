@@ -1,11 +1,13 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { Brand } from './components/ui/brand';
 import { ErrorToaster } from './components/ui/error-toaster';
+import { TokenBadge } from './components/ui/token-badge';
 import { HealthStore } from './stores/health.store';
 import { RunStore } from './stores/run.store';
 
 @Component({
-  imports: [RouterModule, ErrorToaster],
+  imports: [RouterModule, ErrorToaster, Brand, TokenBadge],
   selector: 'an-root',
   templateUrl: './app.html',
 })

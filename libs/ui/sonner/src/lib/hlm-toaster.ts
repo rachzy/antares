@@ -49,7 +49,7 @@ export class HlmToaster {
 	public readonly invert = input<ToasterProps['invert'], BooleanInput>(false, {
 		transform: booleanAttribute,
 	});
-	public readonly theme = input<ToasterProps['theme']>('light');
+	public readonly theme = input<ToasterProps['theme']>('dark');
 	public readonly position = input<ToasterProps['position']>('bottom-right');
 	public readonly hotKey = input<ToasterProps['hotkey']>(['altKey', 'KeyT']);
 	public readonly richColors = input<ToasterProps['richColors'], BooleanInput>(false, {
@@ -76,6 +76,9 @@ export class HlmToaster {
 			classes: {
 				...options?.classes,
 				toast: hlm('rounded-2xl!', options?.classes?.toast),
+				success: hlm('bg-[color-mix(in_oklch,var(--success)_16%,var(--card))]! text-success! border-success/40!', options?.classes?.success),
+				warning: hlm('bg-[color-mix(in_oklch,var(--warning)_16%,var(--card))]! text-warning! border-warning/40!', options?.classes?.warning),
+				error: hlm('bg-[color-mix(in_oklch,var(--destructive)_16%,var(--card))]! text-destructive! border-destructive/40!', options?.classes?.error),
 			},
 		};
 	});

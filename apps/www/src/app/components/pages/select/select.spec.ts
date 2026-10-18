@@ -12,12 +12,13 @@ import { MAX_CONFIRM_FOV_DEG, Select } from './select';
 
 vi.mock('@spartan-ng/brain/sonner', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  toast: { error: vi.fn() },
+  toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 const callbacks = new Map<string, () => void>();
 let fov = 60;
 let center: [number, number] = [291.03, 48.14];
+const gotoObject = vi.fn();
 
 vi.mock('aladin-lite', () => ({
   default: {
@@ -28,6 +29,7 @@ vi.mock('aladin-lite', () => ({
       pix2world: vi.fn(),
       getFov: () => [fov, fov / 2],
       getRaDec: () => center,
+      gotoObject,
       on: (event: string, cb: () => void) => callbacks.set(event, cb),
     }),
   },
@@ -67,6 +69,8 @@ describe('Select', () => {
     extractStatus.set('idle');
     scoreStatus.set('idle');
     vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
+    gotoObject.mockReset();
 
     await TestBed.configureTestingModule({
       imports: [Select],
@@ -176,6 +180,55 @@ describe('Select', () => {
     loading.set(true);
     await fixture.whenStable();
     expect(button('Confirm star')?.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('shows a spinner on Confirm while resolving', async () => {
+    const { fixture, el, zoom, button } = await mount();
+    await zoom(MAX_CONFIRM_FOV_DEG / 2);
+    expect(button('Confirm star')?.querySelector('[data-spinner]')).toBeNull();
+    loading.set(true);
+    await fixture.whenStable();
+    expect(
+      button('Confirm star')?.querySelector('[data-spinner]'),
+    ).toBeTruthy();
+    expect(el.querySelector('[data-spinner]')?.className).toContain(
+      'animate-spin',
+    );
+  });
+
+  it('toasts a success when a star is found', async () => {
+    await hit();
+    expect(toast.success).toHaveBeenCalledWith('Found Kepler-1 b');
+  });
+
+  it('searches the sky by name', async () => {
+    gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[type="search"]')!;
+    input.value = ' Kepler-186 ';
+    input.dispatchEvent(new Event('input'));
+    el.querySelector('form')!.dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+    expect(gotoObject).toHaveBeenCalledWith('Kepler-186', expect.any(Object));
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('toasts when the search finds nothing', async () => {
+    gotoObject.mockImplementation((_q, cb) => cb.error());
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[type="search"]')!;
+    input.value = 'zzz';
+    input.dispatchEvent(new Event('input'));
+    el.querySelector('form')!.dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+    expect(toast.error).toHaveBeenCalledWith('No object named "zzz" found');
+  });
+
+  it('ignores an empty search', async () => {
+    const { fixture, el } = await mount();
+    el.querySelector('form')!.dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+    expect(gotoObject).not.toHaveBeenCalled();
   });
 
   it('disables Confirm when the sky failed to load', async () => {

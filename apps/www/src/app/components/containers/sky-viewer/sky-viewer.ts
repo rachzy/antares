@@ -10,6 +10,8 @@ import {
 import type { AladinInstance } from 'aladin-lite';
 
 const INITIAL_FOV_DEG = 60;
+// A direct HiPS URL skips Aladin's registry lookup, which also probes mirrors that send no CORS headers.
+export const SURVEY_URL = 'https://alasky.cds.unistra.fr/DSS/DSSColor';
 
 @Component({
   selector: 'an-sky-viewer',
@@ -49,6 +51,17 @@ export class SkyViewer {
     return this.aladin?.getRaDec() ?? null;
   }
 
+  goto(query: string): Promise<boolean> {
+    const aladin = this.aladin;
+    if (!aladin) return Promise.resolve(false);
+    return new Promise((resolve) =>
+      aladin.gotoObject(query, {
+        success: () => resolve(true),
+        error: () => resolve(false),
+      }),
+    );
+  }
+
   private async initAladin(element: HTMLDivElement): Promise<void> {
     try {
       const { default: A } = await import('aladin-lite');
@@ -56,7 +69,7 @@ export class SkyViewer {
       await A.init;
       if (this.destroyed) return;
       const aladin = A.aladin(element, {
-        survey: 'P/DSS2/color',
+        survey: SURVEY_URL,
         fov: INITIAL_FOV_DEG,
         cooFrame: 'equatorial',
         mode: 'dark',

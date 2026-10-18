@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
@@ -13,7 +13,11 @@ class ErrorToasterStub {}
 
 describe('App', () => {
   const health = { check: vi.fn() };
-  const run = { restore: vi.fn() };
+  const run = {
+    restore: vi.fn(),
+    extract: signal({ token: null }),
+    score: signal({ token: null }),
+  };
 
   beforeEach(async () => {
     health.check.mockClear();

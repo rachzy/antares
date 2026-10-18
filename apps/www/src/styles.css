@@ -5,6 +5,11 @@
 
 @import '@spartan-ng/brain/hlm-tailwind-preset.css';
 
+@theme inline {
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+}
+
 @source "../../../libs/ui";
 
 :root {
@@ -39,6 +44,8 @@
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.527 0.154 150.069);
+  --warning: oklch(0.666 0.179 58.318);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
@@ -75,6 +82,8 @@
   --accent: #241c14;
   --accent-foreground: #f2ede6;
   --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.792 0.209 151.711);
+  --warning: oklch(0.828 0.189 84.429);
   --border: rgb(242 237 230 / 10%);
   --input: rgb(242 237 230 / 14%);
   --ring: #f54900;
@@ -94,5 +103,11 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  summary {
+    cursor: pointer;
   }
 }

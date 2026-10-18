@@ -1,4 +1,4 @@
-import { featuresToCsv } from './features-csv';
+import { csvFilename, featuresToCsv } from './features-csv';
 
 describe('featuresToCsv', () => {
   it('uses the union of keys in first-seen order as the header', () => {
@@ -28,5 +28,31 @@ describe('featuresToCsv', () => {
 
   it('returns an empty string for no rows', () => {
     expect(featuresToCsv([])).toBe('');
+  });
+});
+
+describe('csvFilename', () => {
+  const at = { ra_deg: 298.65272, dec_deg: -3.9 };
+
+  it('uses the star name', () => {
+    expect(csvFilename({ display_name: 'Kepler-186', ...at })).toBe(
+      'Kepler-186-predictions.csv',
+    );
+  });
+
+  it('makes names safe for a file', () => {
+    expect(csvFilename({ display_name: 'KIC 8120608 / b', ...at })).toBe(
+      'KIC-8120608-b-predictions.csv',
+    );
+  });
+
+  it('falls back to the coordinates when the name is empty', () => {
+    expect(csvFilename({ display_name: ' ', ...at })).toBe(
+      '298.65272_-3.90000-predictions.csv',
+    );
+  });
+
+  it('falls back to a bare name without a star', () => {
+    expect(csvFilename(null)).toBe('predictions.csv');
   });
 });

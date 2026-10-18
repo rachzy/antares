@@ -13,6 +13,7 @@ import {
 @Component({
   imports: [HlmTableImports],
   selector: 'an-score-matrix',
+  host: { class: 'block w-full' },
   template: `
     <p data-copy class="text-muted-foreground mb-2 text-xs">
       Each model scores every candidate; the run uses

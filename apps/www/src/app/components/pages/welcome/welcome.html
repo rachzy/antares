@@ -1,7 +1,6 @@
 <main class="welcome">
   <header class="welcome__intro">
-    <h1 class="welcome__title">Antares</h1>
-    <p class="welcome__lede">
+    <p class="welcome__lede" [class.welcome__lede--leaving]="brand.leaving()">
       A tool for hunting exoplanets across the stars, watching for the faint dip
       in starlight when a world crosses in front of its sun.
     </p>

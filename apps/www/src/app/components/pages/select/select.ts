@@ -7,10 +7,14 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideLoader2, lucideSearch } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmInputImports } from '@spartan-ng/helm/input';
 import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { TargetStore } from '../../../stores/target.store';
@@ -21,7 +25,15 @@ export const MAX_CONFIRM_FOV_DEG = 0.05;
 
 @Component({
   selector: 'an-select',
-  imports: [SkyViewer, HlmButtonImports, HlmAlertDialogImports],
+  imports: [
+    SkyViewer,
+    FormsModule,
+    NgIcon,
+    HlmButtonImports,
+    HlmInputImports,
+    HlmAlertDialogImports,
+  ],
+  providers: [provideIcons({ lucideLoader2, lucideSearch })],
   templateUrl: './select.html',
   host: { class: 'flex min-h-0 flex-1 flex-col gap-3 md:flex-row' },
 })
@@ -32,6 +44,9 @@ export class Select {
   private readonly sky = viewChild(SkyViewer);
   private readonly awaiting = signal(false);
   protected readonly pending = signal<Target | null>(null);
+  protected readonly query = signal('');
+  protected readonly searching = signal(false);
+  protected readonly resolving = this.targets.loading;
 
   protected readonly star = this.run.star;
   protected readonly tooWide = computed(
@@ -57,6 +72,7 @@ export class Select {
       if (target) {
         this.awaiting.set(false);
         untracked(() => {
+          toast.success(`Found ${target.display_name}`);
           const busy = [this.run.extract(), this.run.score()].some(
             (s) => s.status === 'running',
           );
@@ -86,6 +102,15 @@ export class Select {
     if (!center) return;
     this.awaiting.set(true);
     this.targets.resolveByPosition(center[0], center[1]);
+  }
+
+  protected async search(): Promise<void> {
+    const query = this.query().trim();
+    if (!query || this.searching()) return;
+    this.searching.set(true);
+    const found = await this.sky()?.goto(query);
+    this.searching.set(false);
+    if (!found) toast.error(`No object named "${query}" found`);
   }
 
   protected extract(): void {

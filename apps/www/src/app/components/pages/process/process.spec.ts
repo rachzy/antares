@@ -64,6 +64,11 @@ describe('Process', () => {
           provide: RunStore,
           useValue: {
             extract,
+            star: signal({
+              display_name: 'Kepler-186',
+              ra_deg: 298.65,
+              dec_deg: 43.95,
+            }),
             startScore,
             retry,
             processDone: computed(() => extract().status === 'done'),
@@ -144,7 +149,7 @@ describe('Process', () => {
     expect(navigate).toHaveBeenCalledWith('/score');
   });
 
-  it('downloads the features as features.csv', async () => {
+  it('downloads the features named after the star', async () => {
     done([{ a: 'x,y', b: null }]);
     const { button } = await mount();
     const blobs: Blob[] = [];
@@ -156,7 +161,7 @@ describe('Process', () => {
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(function (this: HTMLAnchorElement) {
-        expect(this.download).toBe('features.csv');
+        expect(this.download).toBe('Kepler-186-predictions.csv');
         expect(this.href).toBe('blob:features');
         expect(this.isConnected).toBe(true);
       });

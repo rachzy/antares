@@ -23,10 +23,40 @@
 }
 <div class="relative min-h-64 min-w-0 flex-1 overflow-hidden rounded-xl">
   <an-sky-viewer />
+  <form
+    class="absolute top-14 left-1/2 flex w-[min(22rem,calc(100%-1.5rem))] -translate-x-1/2 items-center gap-1.5 md:top-3"
+    (submit)="$event.preventDefault(); search()"
+  >
+    <input
+      hlmInput
+      type="search"
+      name="query"
+      aria-label="Search the sky by object name"
+      placeholder="Search a star or object, e.g. Kepler-186"
+      class="bg-card/90 backdrop-blur-sm"
+      [ngModel]="query()"
+      (ngModelChange)="query.set($event)"
+    />
+    <button
+      hlmBtn
+      size="icon"
+      type="submit"
+      aria-label="Search"
+      [disabled]="searching() || !query().trim()"
+    >
+      <ng-icon
+        [name]="searching() ? 'lucideLoader2' : 'lucideSearch'"
+        [class.animate-spin]="searching()"
+      />
+    </button>
+  </form>
   <div
-    class="bg-card/90 absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 rounded-xl p-3.5 shadow-sm backdrop-blur-sm"
+    class="bg-card/90 absolute bottom-14 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 rounded-xl p-3.5 shadow-sm backdrop-blur-sm"
   >
     <button hlmBtn type="button" [disabled]="!canConfirm()" (click)="confirm()">
+      @if (resolving()) {
+        <ng-icon data-spinner name="lucideLoader2" class="animate-spin" />
+      }
       Confirm star
     </button>
     @if (tooWide()) {

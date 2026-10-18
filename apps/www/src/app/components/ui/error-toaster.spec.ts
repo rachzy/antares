@@ -11,7 +11,7 @@ import { ErrorToaster } from './error-toaster';
 
 vi.mock('@spartan-ng/brain/sonner', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  toast: { error: vi.fn() },
+  toast: { error: vi.fn(), warning: vi.fn() },
 }));
 
 describe('ErrorToaster', () => {
@@ -47,6 +47,7 @@ describe('ErrorToaster', () => {
       removeEventListener: vi.fn(),
     }));
     vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.warning).mockClear();
     target.set(null);
     pipeline.set(null);
     extract.set({ error: null });
@@ -65,13 +66,14 @@ describe('ErrorToaster', () => {
     expect(toast.error).toHaveBeenCalledTimes(1);
   });
 
-  it('appends the retry hint for busy errors', async () => {
+  it('warns instead of erroring, with the retry hint, for busy errors', async () => {
     const fixture = await setup();
     target.set(new ApiRequestError(429, 'busy', 'Busy.', 7));
     pipeline.set(new ApiRequestError(429, 'busy', 'Busy.'));
     await fixture.whenStable();
-    expect(toast.error).toHaveBeenCalledWith('Busy. Try again in 7 s.');
-    expect(toast.error).toHaveBeenCalledWith('Busy. Try again in 30 s.');
+    expect(toast.warning).toHaveBeenCalledWith('Busy. Try again in 7 s.');
+    expect(toast.warning).toHaveBeenCalledWith('Busy. Try again in 30 s.');
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('toasts an error shared by several sources once', async () => {

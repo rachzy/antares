@@ -44,7 +44,8 @@ export class ErrorToaster {
         const seconds = error.retryAfter ?? retryAfter;
         const hint =
           error.code === 'busy' && seconds ? ` Try again in ${seconds} s.` : '';
-        toast.error(error.message + hint);
+        const notify = error.code === 'busy' ? toast.warning : toast.error;
+        notify(error.message + hint);
       }
     });
   }
