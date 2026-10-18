@@ -36,3 +36,23 @@
     }
   </div>
 </div>
+<hlm-alert-dialog
+  [state]="pending() ? 'open' : 'closed'"
+  (closed)="pending.set(null)"
+>
+  <hlm-alert-dialog-content *hlmAlertDialogPortal>
+    <hlm-alert-dialog-header>
+      <h2 hlmAlertDialogTitle>Replace the star?</h2>
+      <p hlmAlertDialogDescription>
+        A job is still running for {{ star()?.display_name }}. Picking
+        {{ pending()?.display_name }} discards it.
+      </p>
+    </hlm-alert-dialog-header>
+    <hlm-alert-dialog-footer>
+      <button hlmAlertDialogCancel>Keep current job</button>
+      <button hlmAlertDialogAction variant="destructive" (click)="replace()">
+        Replace and discard the running job
+      </button>
+    </hlm-alert-dialog-footer>
+  </hlm-alert-dialog-content>
+</hlm-alert-dialog>

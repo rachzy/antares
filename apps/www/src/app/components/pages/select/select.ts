@@ -8,7 +8,10 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router } from '@angular/router';
+import { toast } from '@spartan-ng/brain/sonner';
+import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
@@ -18,7 +21,7 @@ export const MAX_CONFIRM_FOV_DEG = 0.05;
 
 @Component({
   selector: 'an-select',
-  imports: [SkyViewer, HlmButtonImports],
+  imports: [SkyViewer, HlmButtonImports, HlmAlertDialogImports],
   templateUrl: './select.html',
   host: { class: 'flex min-h-0 flex-1 gap-3' },
 })
@@ -28,6 +31,7 @@ export class Select {
   private readonly router = inject(Router);
   private readonly sky = viewChild(SkyViewer);
   private readonly awaiting = signal(false);
+  protected readonly pending = signal<Target | null>(null);
 
   protected readonly star = this.run.star;
   protected readonly tooWide = computed(
@@ -52,11 +56,29 @@ export class Select {
       if (!untracked(this.awaiting)) return;
       if (target) {
         this.awaiting.set(false);
-        untracked(() => this.run.confirm(target));
+        untracked(() => {
+          const busy = [this.run.extract(), this.run.score()].some(
+            (s) => s.status === 'running',
+          );
+          if (busy) this.pending.set(target);
+          else this.run.confirm(target);
+        });
       } else if (error) {
         this.awaiting.set(false);
       }
     });
+    let toasted = false;
+    effect(() => {
+      if (toasted || !this.sky()?.loadError()) return;
+      toasted = true;
+      toast.error('Unable to load the sky viewer.');
+    });
+  }
+
+  protected replace(): void {
+    const target = this.pending();
+    this.pending.set(null);
+    if (target) this.run.confirm(target);
   }
 
   protected confirm(): void {

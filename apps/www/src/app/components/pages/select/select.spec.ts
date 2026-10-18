@@ -1,13 +1,19 @@
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
+import { toast } from '@spartan-ng/brain/sonner';
 import { ApiRequestError } from '../../../api/api.service';
 import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
 import { MAX_CONFIRM_FOV_DEG, Select } from './select';
+
+vi.mock('@spartan-ng/brain/sonner', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  toast: { error: vi.fn() },
+}));
 
 const callbacks = new Map<string, () => void>();
 let fov = 60;
@@ -44,6 +50,8 @@ describe('Select', () => {
   const confirmed = signal<Target | null>(null);
   const confirm = vi.fn((t: Target) => confirmed.set(t));
   const startExtract = vi.fn();
+  const extractStatus = signal('idle');
+  const scoreStatus = signal('idle');
 
   beforeEach(async () => {
     callbacks.clear();
@@ -56,6 +64,9 @@ describe('Select', () => {
     resolveByPosition.mockReset();
     confirm.mockClear();
     startExtract.mockReset();
+    extractStatus.set('idle');
+    scoreStatus.set('idle');
+    vi.mocked(toast.error).mockClear();
 
     await TestBed.configureTestingModule({
       imports: [Select],
@@ -67,7 +78,13 @@ describe('Select', () => {
         },
         {
           provide: RunStore,
-          useValue: { star: confirmed, confirm, startExtract },
+          useValue: {
+            star: confirmed,
+            confirm,
+            startExtract,
+            extract: computed(() => ({ status: extractStatus() })),
+            score: computed(() => ({ status: scoreStatus() })),
+          },
         },
       ],
     }).compileComponents();
@@ -212,5 +229,74 @@ describe('Select', () => {
     button('Extract lightcurve features')?.click();
     expect(startExtract).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith(['/download']);
+  });
+
+  const dialog = () =>
+    document.body.querySelector<HTMLElement>(
+      '[data-slot="alert-dialog-content"]',
+    );
+  const dialogButton = (text: string) =>
+    Array.from(document.body.querySelectorAll<HTMLElement>('button')).find(
+      (b) => b.textContent?.includes(text),
+    );
+  const other: Target = { ...star, display_name: 'Kepler-2', catalog_id: '2' };
+  const pick = async (page: Awaited<ReturnType<typeof hit>>) => {
+    page.button('Confirm star')?.click();
+    target.set(null);
+    target.set(other);
+    await page.fixture.whenStable();
+  };
+
+  it('replaces the star without asking when no job is running', async () => {
+    extractStatus.set('done');
+    scoreStatus.set('failed');
+    const page = await hit();
+    await pick(page);
+    expect(dialog()).toBeNull();
+    expect(confirm).toHaveBeenLastCalledWith(other);
+  });
+
+  it.each([
+    ['extract', extractStatus],
+    ['score', scoreStatus],
+  ] as const)(
+    'asks before discarding a running %s and replaces on confirm',
+    async (_, status) => {
+      const page = await hit();
+      status.set('running');
+      await pick(page);
+      expect(confirm).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() => expect(dialog()).not.toBeNull());
+      dialogButton('Replace and discard the running job')?.click();
+      await page.fixture.whenStable();
+      expect(confirm).toHaveBeenCalledTimes(2);
+      expect(confirm).toHaveBeenLastCalledWith(other);
+    },
+  );
+
+  it('keeps the running job when the replacement is declined', async () => {
+    const page = await hit();
+    extractStatus.set('running');
+    await pick(page);
+    await vi.waitFor(() => expect(dialog()).not.toBeNull());
+    dialogButton('Keep current job')?.click();
+    await page.fixture.whenStable();
+    await vi.waitFor(() => expect(dialog()).toBeNull());
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(page.el.querySelector('h2')?.textContent).toContain('Kepler-1 b');
+  });
+
+  it('toasts once when the sky viewer fails to load', async () => {
+    const { fixture } = await mount();
+    const sky = fixture.debugElement.query(By.directive(SkyViewer))
+      .componentInstance as SkyViewer;
+    sky.loadError.set(true);
+    await fixture.whenStable();
+    sky.loadError.set(false);
+    await fixture.whenStable();
+    sky.loadError.set(true);
+    await fixture.whenStable();
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith('Unable to load the sky viewer.');
   });
 });
