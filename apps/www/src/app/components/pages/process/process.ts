@@ -40,7 +40,9 @@ export class Process {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'features.csv';
+    document.body.append(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url));
   }
 }

@@ -1,51 +1,36 @@
 <div class="bg-background text-foreground flex h-screen flex-col gap-4 p-4">
   <nav aria-label="Pipeline" class="flex items-center">
     @for (step of steps(); track step.id; let last = $last) {
-      <a
-        data-step
-        [attr.data-state]="step.state"
-        [routerLink]="step.state === 'locked' ? null : ['/', step.id]"
-        [attr.aria-current]="step.state === 'current' ? 'step' : null"
-        [attr.aria-disabled]="step.state === 'locked' ? 'true' : null"
-        [hlmTooltip]="'Locked until the previous step finishes'"
-        [tooltipDisabled]="step.state !== 'locked'"
-        class="flex items-center gap-2 text-sm"
-        [class.text-muted-foreground]="step.state !== 'current'"
-        [class.opacity-45]="step.state === 'locked'"
-        [class.cursor-not-allowed]="step.state === 'locked'"
-      >
+      @if (step.state === 'locked') {
         <span
-          class="grid size-[22px] place-items-center rounded-full border-[1.5px] text-xs"
-          [class.border-border]="
-            step.state === 'open' || step.state === 'locked'
-          "
-          [class.border-primary]="
-            step.state === 'done' || step.state === 'current'
-          "
-          [class.bg-primary]="step.state === 'current'"
-          [class.text-primary-foreground]="step.state === 'current'"
-          [class.text-primary]="step.state === 'done'"
+          data-step
+          data-state="locked"
+          tabindex="0"
+          role="link"
+          aria-disabled="true"
+          hlmTooltip="Locked until the previous step finishes"
+          class="text-muted-foreground flex cursor-not-allowed items-center gap-2 text-sm opacity-45"
         >
-          @if (step.state === 'done') {
-            <svg
-              data-check
-              viewBox="0 0 24 24"
-              class="size-3.5"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12.5l4.5 4.5L19 7.5" />
-            </svg>
-          } @else {
-            {{ step.number }}
-          }
+          <ng-container
+            [ngTemplateOutlet]="content"
+            [ngTemplateOutletContext]="{ $implicit: step }"
+          />
         </span>
-        {{ step.label }}
-      </a>
+      } @else {
+        <a
+          data-step
+          [attr.data-state]="step.state"
+          [routerLink]="['/', step.id]"
+          [attr.aria-current]="step.state === 'current' ? 'step' : null"
+          class="flex items-center gap-2 text-sm"
+          [class.text-muted-foreground]="step.state !== 'current'"
+        >
+          <ng-container
+            [ngTemplateOutlet]="content"
+            [ngTemplateOutletContext]="{ $implicit: step }"
+          />
+        </a>
+      }
       @if (!last) {
         <div
           class="mx-2.5 h-0.5 flex-1 rounded-sm"
@@ -55,6 +40,35 @@
       }
     }
   </nav>
+  <ng-template #content let-step>
+    <span
+      class="grid size-[22px] place-items-center rounded-full border-[1.5px] text-xs"
+      [class.border-border]="step.state === 'open' || step.state === 'locked'"
+      [class.border-primary]="step.state === 'done' || step.state === 'current'"
+      [class.bg-primary]="step.state === 'current'"
+      [class.text-primary-foreground]="step.state === 'current'"
+      [class.text-primary]="step.state === 'done'"
+    >
+      @if (step.state === 'done') {
+        <svg
+          data-check
+          viewBox="0 0 24 24"
+          class="size-3.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+      } @else {
+        {{ step.number }}
+      }
+    </span>
+    {{ step.label }}
+  </ng-template>
   <main class="flex min-h-0 flex-1 flex-col">
     <router-outlet></router-outlet>
   </main>

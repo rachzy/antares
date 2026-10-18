@@ -47,6 +47,7 @@ const read = (blob: Blob) =>
   });
 
 describe('Process', () => {
+  afterEach(() => vi.useRealTimers());
   const extract = signal<Stage>(idle);
   const startScore = vi.fn();
   const retry = vi.fn();
@@ -157,12 +158,17 @@ describe('Process', () => {
       .mockImplementation(function (this: HTMLAnchorElement) {
         expect(this.download).toBe('features.csv');
         expect(this.href).toBe('blob:features');
+        expect(this.isConnected).toBe(true);
       });
+    vi.useFakeTimers();
     button('Download extracted features')?.click();
     expect(click).toHaveBeenCalledOnce();
+    expect(document.querySelector('a[download]')).toBeNull();
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    vi.runAllTimers();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:features');
     expect(blobs[0].type).toContain('text/csv');
     expect(await read(blobs[0])).toBe('a,b\r\n"x,y",\r\n');
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:features');
     click.mockRestore();
   });
 

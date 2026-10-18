@@ -15,15 +15,13 @@ export function stepGuard(step: Step): CanActivateFn {
   return () => {
     const run = inject(RunStore);
     const router = inject(Router);
-    return toObservable(run.ready).pipe(
-      filter(Boolean),
-      take(1),
-      map(() => {
-        const unlocked = run.unlocked();
-        return PIPELINE_STEPS.indexOf(step) <= PIPELINE_STEPS.indexOf(unlocked)
-          ? true
-          : router.createUrlTree(['/', unlocked]);
-      }),
-    );
+    const decide = () => {
+      const unlocked = run.unlocked();
+      return PIPELINE_STEPS.indexOf(step) <= PIPELINE_STEPS.indexOf(unlocked)
+        ? true
+        : router.createUrlTree(['/', unlocked]);
+    };
+    if (run.ready()) return decide();
+    return toObservable(run.ready).pipe(filter(Boolean), take(1), map(decide));
   };
 }

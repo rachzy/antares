@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, UrlTree } from '@angular/router';
-import { isObservable, firstValueFrom, Observable } from 'rxjs';
+import { isObservable, firstValueFrom, Observable, of } from 'rxjs';
 import { type Step, RunStore } from '../../../stores/run.store';
 import { stepGuard } from './step.guard';
 
@@ -21,16 +21,24 @@ describe('stepGuard', () => {
   });
 
   const run = (step: Step) =>
-    TestBed.runInInjectionContext(
-      () => stepGuard(step)({} as never, {} as never) as Observable<unknown>,
+    TestBed.runInInjectionContext(() =>
+      stepGuard(step)({} as never, {} as never),
     );
 
-  const decide = (step: Step) => firstValueFrom(run(step));
+  const decide = (step: Step) => {
+    const result = run(step);
+    return firstValueFrom(isObservable(result) ? result : of(result));
+  };
 
   const target = (result: unknown) =>
     TestBed.inject(Router).serializeUrl(result as UrlTree);
 
-  it('returns an observable', () => {
+  it('decides synchronously once the run is ready', () => {
+    expect(run('select')).toBe(true);
+  });
+
+  it('returns an observable while the restore is pending', () => {
+    ready.set(false);
     expect(isObservable(run('select'))).toBe(true);
   });
 
@@ -60,7 +68,7 @@ describe('stepGuard', () => {
     ready.set(false);
     unlocked.set('download');
     let result: unknown = 'pending';
-    run('score').subscribe((r) => (result = r));
+    (run('score') as Observable<unknown>).subscribe((r) => (result = r));
     await Promise.resolve();
     TestBed.tick();
     expect(result).toBe('pending');

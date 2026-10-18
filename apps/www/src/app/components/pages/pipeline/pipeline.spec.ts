@@ -70,16 +70,28 @@ describe('Pipeline', () => {
     const fixture = await mount('/download');
     const tooltips = fixture.debugElement
       .queryAll(By.css('[data-step]'))
-      .map((d) => d.injector.get(BrnTooltip));
-    expect(tooltips.map((t) => t.tooltipDisabled())).toEqual([
-      true,
-      true,
-      true,
+      .map((d) => d.injector.get(BrnTooltip, null));
+    expect(tooltips.map((t) => !!t && !t.tooltipDisabled())).toEqual([
       false,
+      false,
+      false,
+      true,
     ]);
-    expect(tooltips[3].brnTooltip()).toBe(
+    expect(tooltips[3]?.brnTooltip()).toBe(
       'Locked until the previous step finishes',
     );
+  });
+
+  it('keeps locked steps focusable but not navigable', async () => {
+    const el = await render('/download');
+    const [select, , , score] = steps(el);
+    expect(score.tagName).toBe('SPAN');
+    expect(score.getAttribute('href')).toBeNull();
+    expect(score.getAttribute('tabindex')).toBe('0');
+    expect(score.getAttribute('role')).toBe('link');
+    expect(score.getAttribute('aria-disabled')).toBe('true');
+    expect(select.tagName).toBe('A');
+    expect(select.getAttribute('href')).toBe('/select');
   });
 
   it('renders the routed page in an outlet', async () => {

@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -20,7 +21,7 @@ const LABELS = {
 };
 
 @Component({
-  imports: [RouterLink, RouterOutlet, HlmTooltipImports],
+  imports: [NgTemplateOutlet, RouterLink, RouterOutlet, HlmTooltipImports],
   selector: 'an-pipeline',
   templateUrl: './pipeline.html',
 })
