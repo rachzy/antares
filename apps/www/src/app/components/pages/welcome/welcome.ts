@@ -1,4 +1,5 @@
-import { Component, HostListener, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
 
 @Component({
@@ -8,18 +9,9 @@ import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
   styleUrl: './welcome.css',
 })
 export class Welcome {
-  protected readonly expanded = signal(false);
+  private readonly router = inject(Router);
 
   protected expand(): void {
-    this.expanded.set(true);
-  }
-
-  protected collapse(): void {
-    this.expanded.set(false);
-  }
-
-  @HostListener('document:keydown.escape')
-  protected onEscape(): void {
-    this.collapse();
+    void this.router.navigate(['/select']);
   }
 }

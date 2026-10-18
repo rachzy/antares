@@ -5,6 +5,9 @@ declare module 'aladin-lite' {
       y: number,
       frame?: string,
     ): [number, number] | null | undefined;
+    getFov(): [number, number];
+    getRaDec(): [number, number];
+    on(event: 'zoomChanged' | 'positionChanged', cb: () => void): void;
   }
 
   export interface AladinOptions {
@@ -12,6 +15,9 @@ declare module 'aladin-lite' {
     fov?: number;
     cooFrame?: string;
     mode?: 'light' | 'dark';
+    showReticle?: boolean;
+    reticleColor?: string;
+    reticleSize?: number;
   }
 
   export interface AladinStatic {

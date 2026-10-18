@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
 import { Welcome } from './welcome';
 
 vi.mock('aladin-lite', () => ({
@@ -6,7 +7,12 @@ vi.mock('aladin-lite', () => ({
     get init() {
       return Promise.resolve();
     },
-    aladin: () => ({ pix2world: vi.fn() }),
+    aladin: () => ({
+      pix2world: vi.fn(),
+      getFov: () => [60, 30],
+      getRaDec: () => [0, 0],
+      on: vi.fn(),
+    }),
   },
 }));
 
@@ -14,6 +20,7 @@ describe('Welcome', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Welcome],
+      providers: [provideRouter([])],
     }).compileComponents();
   });
 
@@ -27,60 +34,26 @@ describe('Welcome', () => {
     );
   });
 
-  it('starts collapsed, inviting a click to look closer', async () => {
+  it('invites a click to look closer', async () => {
     const fixture = TestBed.createComponent(Welcome);
     await fixture.whenStable();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.welcome')?.classList).not.toContain(
-      'welcome--expanded',
+    expect(compiled.querySelector('.welcome__expand')?.textContent).toContain(
+      'Look closer',
     );
-    expect(compiled.querySelector('.welcome__expand')).toBeTruthy();
   });
 
-  it('expands the stage to fill the page when clicked', async () => {
+  it('opens the select page when the stage is clicked', async () => {
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
     const fixture = TestBed.createComponent(Welcome);
     await fixture.whenStable();
 
     const compiled = fixture.nativeElement as HTMLElement;
     compiled.querySelector<HTMLButtonElement>('.welcome__expand')?.click();
-    fixture.detectChanges();
 
-    expect(compiled.querySelector('.welcome')?.classList).toContain(
-      'welcome--expanded',
-    );
-    expect(compiled.querySelector('.welcome__collapse')).toBeTruthy();
-  });
-
-  it('collapses back when the back control is clicked', async () => {
-    const fixture = TestBed.createComponent(Welcome);
-    await fixture.whenStable();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    compiled.querySelector<HTMLButtonElement>('.welcome__expand')?.click();
-    fixture.detectChanges();
-
-    compiled.querySelector<HTMLButtonElement>('.welcome__collapse')?.click();
-    fixture.detectChanges();
-
-    expect(compiled.querySelector('.welcome')?.classList).not.toContain(
-      'welcome--expanded',
-    );
-  });
-
-  it('collapses when Escape is pressed while expanded', async () => {
-    const fixture = TestBed.createComponent(Welcome);
-    await fixture.whenStable();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    compiled.querySelector<HTMLButtonElement>('.welcome__expand')?.click();
-    fixture.detectChanges();
-
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    fixture.detectChanges();
-
-    expect(compiled.querySelector('.welcome')?.classList).not.toContain(
-      'welcome--expanded',
-    );
+    expect(navigate).toHaveBeenCalledWith(['/select']);
   });
 });

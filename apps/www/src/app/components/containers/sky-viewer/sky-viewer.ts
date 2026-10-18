@@ -9,6 +9,8 @@ import {
 } from '@angular/core';
 import type { AladinInstance } from 'aladin-lite';
 
+const INITIAL_FOV_DEG = 60;
+
 @Component({
   selector: 'an-sky-viewer',
   templateUrl: './sky-viewer.html',
@@ -21,12 +23,19 @@ export class SkyViewer {
     null,
   );
   protected readonly loading = signal(true);
-  protected readonly loadError = signal(false);
+  readonly loadError = signal(false);
+  private readonly fov = signal(INITIAL_FOV_DEG);
+  readonly fovDeg = this.fov.asReadonly();
 
   private readonly destroyRef = inject(DestroyRef);
+  private aladin: AladinInstance | null = null;
 
   constructor() {
     afterNextRender(() => void this.initAladin());
+  }
+
+  center(): [number, number] | null {
+    return this.aladin?.getRaDec() ?? null;
   }
 
   private async initAladin(): Promise<void> {
@@ -35,10 +44,15 @@ export class SkyViewer {
       await A.init;
       const aladin = A.aladin(this.skyDiv().nativeElement, {
         survey: 'P/DSS2/color',
-        fov: 60,
+        fov: INITIAL_FOV_DEG,
         cooFrame: 'equatorial',
         mode: 'dark',
+        showReticle: true,
+        reticleColor: '#f54900',
+        reticleSize: 24,
       });
+      aladin.on('zoomChanged', () => this.fov.set(aladin.getFov()[0]));
+      this.aladin = aladin;
       this.loading.set(false);
       this.attachClickHandler(aladin);
     } catch (error) {

@@ -3,6 +3,9 @@ import { SkyViewer } from './sky-viewer';
 
 const aladinMock = vi.fn();
 const pix2worldMock = vi.fn();
+const getFovMock = vi.fn();
+const getRaDecMock = vi.fn();
+const callbacks = new Map<string, () => void>();
 let initPromise: Promise<void>;
 
 vi.mock('aladin-lite', () => ({
@@ -12,7 +15,12 @@ vi.mock('aladin-lite', () => ({
     },
     aladin: (element: HTMLElement, options: unknown) => {
       aladinMock(element, options);
-      return { pix2world: pix2worldMock };
+      return {
+        pix2world: pix2worldMock,
+        getFov: getFovMock,
+        getRaDec: getRaDecMock,
+        on: (event: string, cb: () => void) => callbacks.set(event, cb),
+      };
     },
   },
 }));
@@ -33,6 +41,9 @@ describe('SkyViewer', () => {
   beforeEach(async () => {
     aladinMock.mockClear();
     pix2worldMock.mockReset();
+    getFovMock.mockReset();
+    getRaDecMock.mockReset();
+    callbacks.clear();
     initPromise = Promise.resolve();
 
     await TestBed.configureTestingModule({
@@ -50,8 +61,39 @@ describe('SkyViewer', () => {
         fov: 60,
         cooFrame: 'equatorial',
         mode: 'dark',
+        showReticle: true,
+        reticleColor: '#f54900',
+        reticleSize: 24,
       });
     });
+  });
+
+  it('tracks the field of view as the user zooms', async () => {
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    expect(fixture.componentInstance.fovDeg()).toBe(60);
+
+    await vi.waitFor(() => expect(callbacks.has('zoomChanged')).toBe(true));
+    getFovMock.mockReturnValue([0.02, 0.01]);
+    callbacks.get('zoomChanged')?.();
+
+    expect(fixture.componentInstance.fovDeg()).toBe(0.02);
+  });
+
+  it('reports the sky center once Aladin is ready', async () => {
+    let resolveInit!: () => void;
+    initPromise = new Promise((resolve) => {
+      resolveInit = resolve;
+    });
+    getRaDecMock.mockReturnValue([83.82, -5.39]);
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    expect(fixture.componentInstance.center()).toBeNull();
+
+    resolveInit();
+    await vi.waitFor(() =>
+      expect(fixture.componentInstance.center()).toEqual([83.82, -5.39]),
+    );
   });
 
   it('shows a loading message until Aladin finishes initializing', async () => {
