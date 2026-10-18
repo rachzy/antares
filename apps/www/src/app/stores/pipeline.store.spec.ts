@@ -70,6 +70,15 @@ describe('PipelineStore', () => {
     expect(store.loading()).toBe(true);
   });
 
+  it('a 202 running job has no queue position', () => {
+    const store = setup({
+      analyze: () => of({ ...queued('tok', 0), status: 'running' }),
+    });
+    store.analyze({ query: 'x' });
+    expect(track).toHaveBeenCalledWith('tok');
+    expect(store.position()).toBeNull();
+  });
+
   it('mirrors the subscription result when it is done', () => {
     const store = setup({ extract: () => of(queued('tok')) });
     store.extract({ query: 'x' });

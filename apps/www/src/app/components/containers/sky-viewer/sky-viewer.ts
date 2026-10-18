@@ -43,7 +43,16 @@ export class SkyViewer {
   protected readonly pipeline = inject(PipelineStore);
 
   protected readonly notReady = computed(
-    () => this.health.health() !== null && !this.health.ready(),
+    () =>
+      this.health.error() !== null ||
+      (this.health.health() !== null && !this.health.ready()),
+  );
+  protected readonly canAnalyze = computed(
+    () =>
+      this.target.target() !== null &&
+      !this.target.loading() &&
+      this.target.error() === null &&
+      !this.pipeline.loading(),
   );
   protected readonly percent = computed(() => {
     const fraction = this.pipeline.progress()?.fraction;

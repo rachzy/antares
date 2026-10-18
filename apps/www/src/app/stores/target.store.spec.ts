@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import type { ResolveRequest, Target } from '../api/api.types';
 import { ApiRequestError, ApiService } from '../api/api.service';
 import { TargetStore } from './target.store';
@@ -58,5 +58,23 @@ describe('TargetStore', () => {
     store.resolveByPosition(10, 20, 'TESS');
     expect(calls[0]).toEqual({ ra_deg: 10, dec_deg: 20, mission: 'TESS' });
     expect(store.target()).toEqual(target);
+  });
+
+  it('clears the previous target while resolving and when resolving fails', () => {
+    let pending = new Subject<Target>();
+    const store = setup(() => pending);
+    store.resolveByPosition(1, 2);
+    pending.next(target);
+    pending.complete();
+    expect(store.target()).toEqual(target);
+
+    pending = new Subject<Target>();
+    store.resolveByPosition(3, 4);
+    expect(store.target()).toBeNull();
+    expect(store.loading()).toBe(true);
+
+    pending.error(new ApiRequestError(404, 'not_found', 'nope'));
+    expect(store.target()).toBeNull();
+    expect(store.loading()).toBe(false);
   });
 });

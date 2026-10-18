@@ -73,7 +73,9 @@ export const PipelineStore = signalStore(
                   if (job.status === 'done') {
                     patchState(store, { result: job.result, loading: false });
                   } else {
-                    patchState(store, { position: job.position });
+                    patchState(store, {
+                      position: job.status === 'queued' ? job.position : null,
+                    });
                     subscription.track(job.token);
                   }
                 }),

@@ -167,9 +167,60 @@ describe('SubscriptionStore', () => {
     expect(snapshot).toHaveBeenCalledTimes(2);
   });
 
-  it('resume() tracks the stored token', () => {
+  it('resume() snapshots a running job then watches since lastSeq', () => {
     localStorage.setItem(KEY, 'saved');
     const store = setup();
+    snapshot.mockReturnValue(
+      of(
+        view({
+          state: 'running',
+          milestones: [m(1, 'running')],
+          last_seq: 4,
+        }),
+      ),
+    );
+    store.resume();
+    expect(snapshot).toHaveBeenCalledWith('saved');
+    expect(watchCalls).toEqual([['saved', 4]]);
+    expect(store.token()).toBe('saved');
+    expect(store.state()).toBe('running');
+    expect(store.events().map((e) => e.seq)).toEqual([1]);
+  });
+
+  it('resume() clears an expired token without opening a socket', () => {
+    vi.useFakeTimers();
+    localStorage.setItem(KEY, 'expired');
+    const store = setup();
+    snapshot.mockReturnValue(
+      throwError(() => new ApiRequestError(404, 'not_found', 'gone')),
+    );
+    store.resume();
+    expect(watchCalls).toHaveLength(0);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(store.token()).toBeNull();
+    expect(store.state()).toBe('idle');
+    expect(store.error()).toBeNull();
+  });
+
+  it('resume() mirrors a finished job without opening a socket', () => {
+    localStorage.setItem(KEY, 'saved');
+    const store = setup();
+    snapshot.mockReturnValue(
+      of(view({ state: 'done', result, milestones: [m(2, 'done')] })),
+    );
+    store.resume();
+    expect(watchCalls).toHaveLength(0);
+    expect(store.state()).toBe('done');
+    expect(store.result()).toEqual(result);
+  });
+
+  it('resume() falls back to tracking after a transient snapshot error', () => {
+    localStorage.setItem(KEY, 'saved');
+    const store = setup();
+    snapshot.mockReturnValue(
+      throwError(() => new ApiRequestError(503, 'unavailable', 'down')),
+    );
     store.resume();
     expect(watchCalls).toEqual([['saved', undefined]]);
     expect(store.token()).toBe('saved');

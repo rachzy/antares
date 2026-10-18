@@ -154,29 +154,53 @@ export const SubscriptionStore = signalStore(
         }),
       );
 
-    const stop = () => {
+    const reset = () => {
       session.unsubscribe();
       session = new Subscription();
       attempts = 0;
-      forget();
       patchState(store, initial);
+    };
+
+    const stop = () => {
+      reset();
+      forget();
+    };
+
+    const open = (token: string) => {
+      if (typeof WebSocket === 'undefined') poll(session, token);
+      else connect(session, token);
     };
 
     const track = (token: string) => {
       stop();
       storage((s) => s.setItem(KEY, token));
       patchState(store, { token, state: 'queued' });
-      if (typeof WebSocket === 'undefined') poll(session, token);
-      else connect(session, token);
+      open(token);
     };
 
-    return {
-      track,
-      stop,
-      resume: () => {
-        const token = storage((s) => s.getItem(KEY));
-        if (token) track(token);
-      },
+    const resume = () => {
+      const token = storage((s) => s.getItem(KEY));
+      if (!token) return;
+      reset();
+      patchState(store, { token });
+      session.add(
+        api.snapshot(token).subscribe({
+          next: (view) => {
+            applyView(view);
+            if (!TERMINAL.has(view.state)) open(token);
+          },
+          error: (error: ApiRequestError) => {
+            if (error?.status === 404) {
+              forget();
+              patchState(store, initial);
+            } else {
+              track(token);
+            }
+          },
+        }),
+      );
     };
+
+    return { track, stop, resume };
   }),
 );

@@ -49,6 +49,7 @@ function fakeStores() {
     health: {
       health: signal<Health | null>(null),
       ready: signal(false),
+      error: signal<ApiRequestError | null>(null),
     },
     target: {
       target: signal<Target | null>(null),
@@ -152,6 +153,36 @@ describe('SkyViewer', () => {
       'button[hlmBtn]',
     ) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
+  });
+
+  it.each(['loading', 'error'] as const)(
+    'disables Analyze while the target store has %s',
+    async (kind) => {
+      stores.target.target.set(kepler);
+      if (kind === 'loading') stores.target.loading.set(true);
+      else
+        stores.target.error.set(
+          new ApiRequestError(404, 'not_found', 'No target.'),
+        );
+      const fixture = await renderLoaded();
+
+      const button = fixture.nativeElement.querySelector(
+        'button[hlmBtn]',
+      ) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+    },
+  );
+
+  it('says the api is unreachable when the health check fails', async () => {
+    stores.health.error.set(
+      new ApiRequestError(0, 'unavailable', 'Network error'),
+    );
+    const fixture = await renderLoaded();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'The API is unreachable.',
+    );
+    expect(fixture.nativeElement.textContent).not.toContain('not ready');
   });
 
   it('shows the queue position and then the latest progress', async () => {

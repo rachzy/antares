@@ -7,7 +7,16 @@ import {
   withState,
 } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, EMPTY, pipe, switchMap, tap } from 'rxjs';
+import {
+  catchError,
+  defer,
+  EMPTY,
+  pipe,
+  repeat,
+  switchMap,
+  tap,
+  timer,
+} from 'rxjs';
 import { ApiRequestError, ApiService } from '../api/api.service';
 import type { Health } from '../api/api.types';
 
@@ -16,6 +25,8 @@ interface HealthState {
   loading: boolean;
   error: ApiRequestError | null;
 }
+
+const RECHECK_MS = 3000;
 
 export const HealthStore = signalStore(
   { providedIn: 'root' },
@@ -26,13 +37,21 @@ export const HealthStore = signalStore(
   withMethods((store, api = inject(ApiService)) => ({
     check: rxMethod<void>(
       pipe(
-        tap(() => patchState(store, { loading: true, error: null })),
         switchMap(() =>
-          api.health().pipe(
-            tap((health) => patchState(store, { health, loading: false })),
-            catchError((error: ApiRequestError) => {
-              patchState(store, { error, loading: false });
-              return EMPTY;
+          defer(() => {
+            patchState(store, { loading: true });
+            return api.health().pipe(
+              tap((health) =>
+                patchState(store, { health, error: null, loading: false }),
+              ),
+              catchError((error: ApiRequestError) => {
+                patchState(store, { error, loading: false });
+                return EMPTY;
+              }),
+            );
+          }).pipe(
+            repeat({
+              delay: () => (store.ready() ? EMPTY : timer(RECHECK_MS)),
             }),
           ),
         ),

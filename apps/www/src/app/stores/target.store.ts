@@ -17,12 +17,14 @@ export const TargetStore = signalStore(
   withMethods((store, api = inject(ApiService)) => {
     const resolve = rxMethod<ResolveRequest>(
       pipe(
-        tap(() => patchState(store, { loading: true, error: null })),
+        tap(() =>
+          patchState(store, { target: null, loading: true, error: null }),
+        ),
         switchMap((body) =>
           api.resolveTarget(body).pipe(
             tap((target) => patchState(store, { target, loading: false })),
             catchError((error: ApiRequestError) => {
-              patchState(store, { error, loading: false });
+              patchState(store, { target: null, error, loading: false });
               return EMPTY;
             }),
           ),

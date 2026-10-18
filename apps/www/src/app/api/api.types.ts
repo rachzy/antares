@@ -9,10 +9,6 @@ export type ApiErrorCode =
   | 'busy'
   | 'internal';
 
-export interface ApiError {
-  error: { code: ApiErrorCode; message: string };
-}
-
 export interface Health {
   status: 'ok';
   ready: boolean;

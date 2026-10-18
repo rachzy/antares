@@ -17,7 +17,13 @@
     class="absolute bottom-4 left-4 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded bg-card px-3 py-2 text-sm text-card-foreground shadow"
   >
     @if (notReady()) {
-      <p class="text-destructive">The API is not ready yet.</p>
+      <p role="alert" class="text-destructive">
+        @if (health.error()) {
+          The API is unreachable.
+        } @else {
+          The API is not ready yet.
+        }
+      </p>
     }
 
     @if (selectedCoord(); as coord) {
@@ -38,12 +44,7 @@
       <p role="alert" class="text-destructive">{{ error.message }}</p>
     }
 
-    <button
-      hlmBtn
-      size="sm"
-      [disabled]="pipeline.loading() || !target.target()"
-      (click)="analyze()"
-    >
+    <button hlmBtn size="sm" [disabled]="!canAnalyze()" (click)="analyze()">
       Analyze
     </button>
 
