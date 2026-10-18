@@ -4,6 +4,11 @@ WHERE target_id = sqlc.arg(target_id) AND params_hash = sqlc.arg(params_hash)
   AND shaula_version = sqlc.arg(shaula_version)
   AND superseded_at IS NULL AND (expires_at IS NULL OR expires_at > sqlc.arg(now));
 
+-- name: LatestFeatures :one
+SELECT shaula_version, params_hash, features_json, features_hash, created_at, expires_at FROM feature_cache
+WHERE target_id = ?
+ORDER BY created_at DESC, id DESC LIMIT 1;
+
 -- name: PutFeatures :exec
 INSERT INTO feature_cache
   (target_id, params_hash, shaula_version, features_json, features_hash, created_at, expires_at, superseded_at)
