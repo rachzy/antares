@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { HealthStore } from './stores/health.store';
-import { SubscriptionStore } from './stores/subscription.store';
+import { RunStore } from './stores/run.store';
 
 @Component({
   imports: [RouterModule],
@@ -10,10 +10,10 @@ import { SubscriptionStore } from './stores/subscription.store';
 })
 export class App implements OnInit {
   private readonly health = inject(HealthStore);
-  private readonly subscription = inject(SubscriptionStore);
+  private readonly run = inject(RunStore);
 
   ngOnInit(): void {
     this.health.check();
-    this.subscription.resume();
+    this.run.restore();
   }
 }

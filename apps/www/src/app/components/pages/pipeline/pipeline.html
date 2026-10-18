@@ -1,0 +1,61 @@
+<div class="bg-background text-foreground flex h-screen flex-col gap-4 p-4">
+  <nav aria-label="Pipeline" class="flex items-center">
+    @for (step of steps(); track step.id; let last = $last) {
+      <a
+        data-step
+        [attr.data-state]="step.state"
+        [routerLink]="step.state === 'locked' ? null : ['/', step.id]"
+        [attr.aria-current]="step.state === 'current' ? 'step' : null"
+        [attr.aria-disabled]="step.state === 'locked' ? 'true' : null"
+        [hlmTooltip]="'Locked until the previous step finishes'"
+        [tooltipDisabled]="step.state !== 'locked'"
+        class="flex items-center gap-2 text-sm"
+        [class.text-muted-foreground]="step.state !== 'current'"
+        [class.opacity-45]="step.state === 'locked'"
+        [class.cursor-not-allowed]="step.state === 'locked'"
+      >
+        <span
+          class="grid size-[22px] place-items-center rounded-full border-[1.5px] text-xs"
+          [class.border-border]="
+            step.state === 'open' || step.state === 'locked'
+          "
+          [class.border-primary]="
+            step.state === 'done' || step.state === 'current'
+          "
+          [class.bg-primary]="step.state === 'current'"
+          [class.text-primary-foreground]="step.state === 'current'"
+          [class.text-primary]="step.state === 'done'"
+        >
+          @if (step.state === 'done') {
+            <svg
+              data-check
+              viewBox="0 0 24 24"
+              class="size-3.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          } @else {
+            {{ step.number }}
+          }
+        </span>
+        {{ step.label }}
+      </a>
+      @if (!last) {
+        <div
+          class="mx-2.5 h-0.5 flex-1 rounded-sm"
+          [class.bg-primary]="step.state === 'done'"
+          [class.bg-muted]="step.state !== 'done'"
+        ></div>
+      }
+    }
+  </nav>
+  <main class="flex min-h-0 flex-1 flex-col">
+    <router-outlet></router-outlet>
+  </main>
+</div>

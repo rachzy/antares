@@ -4,30 +4,30 @@ import { App } from './app';
 import { appRoutes } from './app.routes';
 import { Welcome } from './components/pages/welcome/welcome';
 import { HealthStore } from './stores/health.store';
-import { SubscriptionStore } from './stores/subscription.store';
+import { RunStore } from './stores/run.store';
 
 describe('App', () => {
   const health = { check: vi.fn() };
-  const subscription = { resume: vi.fn() };
+  const run = { restore: vi.fn() };
 
   beforeEach(async () => {
     health.check.mockClear();
-    subscription.resume.mockClear();
+    run.restore.mockClear();
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(appRoutes),
         { provide: HealthStore, useValue: health },
-        { provide: SubscriptionStore, useValue: subscription },
+        { provide: RunStore, useValue: run },
       ],
     }).compileComponents();
   });
 
-  it('checks api health and resumes a saved job on init', async () => {
+  it('checks api health and restores the saved run on init', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     expect(health.check).toHaveBeenCalledOnce();
-    expect(subscription.resume).toHaveBeenCalledOnce();
+    expect(run.restore).toHaveBeenCalledOnce();
   });
 
   it('should render a router outlet', async () => {
