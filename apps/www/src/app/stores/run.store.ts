@@ -8,7 +8,14 @@ import {
   withProps,
   withState,
 } from '@ngrx/signals';
-import { catchError, forkJoin, map, of, type Observable } from 'rxjs';
+import {
+  catchError,
+  forkJoin,
+  map,
+  of,
+  Subscription,
+  type Observable,
+} from 'rxjs';
 import { ApiRequestError, ApiService } from '../api/api.service';
 import type {
   ExtractRequest,
@@ -43,6 +50,7 @@ interface Saved {
   star: Target | null;
   extractToken: string | null;
   scoreToken: string | null;
+  extractCached: boolean;
 }
 
 const KEY = 'antares.run';
@@ -138,11 +146,21 @@ export const RunStore = signalStore(
           star: store.star(),
           extractToken: store.extract().token,
           scoreToken: store.score().token,
+          extractCached: store.extract().cached,
         };
         storage((s) => s.setItem(KEY, JSON.stringify(saved)));
       };
 
+      let restoring = new Subscription();
+      let resumeScore: string | null = null;
+
+      const cancel = () => {
+        restoring.unsubscribe();
+        resumeScore = null;
+      };
+
       const clear = () => {
+        cancel();
         store._current.set(null);
         pipeline.reset();
         patchState(store, { star: null, extract: idle, score: idle });
@@ -161,6 +179,7 @@ export const RunStore = signalStore(
       };
 
       const run = (job: Job) => {
+        cancel();
         store._current.set(job);
         patchState(store, { [job]: { ...idle, status: 'running' } });
         persist();
@@ -201,7 +220,15 @@ export const RunStore = signalStore(
           next = { ...next, status: 'done', result, cached: true };
         }
         patchState(store, { [job]: next });
-        if (next.token !== slice.token) untracked(persist);
+        if (next.token !== slice.token || next.cached !== slice.cached) {
+          untracked(persist);
+        }
+        if (job === 'extract' && next.status === 'done' && resumeScore) {
+          const token = resumeScore;
+          resumeScore = null;
+          store._current.set('score');
+          untracked(() => subscription.track(token));
+        }
       };
 
       const load = (token: string | null): Observable<Stage | 'gone'> =>
@@ -228,24 +255,33 @@ export const RunStore = signalStore(
           saved = null;
         }
         if (!saved?.star) return clear();
+        const cached = !!saved.extractCached;
+        cancel();
         store._current.set(null);
         patchState(store, { star: saved.star, extract: idle, score: idle });
-        forkJoin([load(saved.extractToken), load(saved.scoreToken)]).subscribe(
-          ([extract, score]) => {
-            if (extract === 'gone' || score === 'gone') return clear();
-            patchState(store, { extract, score });
-            const job: Job | null =
-              score.status === 'running'
-                ? 'score'
-                : extract.status === 'running'
-                  ? 'extract'
-                  : null;
-            if (job) {
-              store._current.set(job);
-              subscription.track(store[job]().token as string);
-            }
-          },
-        );
+        restoring = forkJoin([
+          cached ? of(idle) : load(saved.extractToken),
+          load(saved.scoreToken),
+        ]).subscribe(([extract, score]) => {
+          if (extract === 'gone' || score === 'gone') return clear();
+          if (cached) {
+            patchState(store, { score });
+            run('extract');
+            if (score.status === 'running') resumeScore = score.token;
+            return;
+          }
+          patchState(store, { extract, score });
+          const job: Job | null =
+            score.status === 'running'
+              ? 'score'
+              : extract.status === 'running'
+                ? 'extract'
+                : null;
+          if (job) {
+            store._current.set(job);
+            subscription.track(store[job]().token as string);
+          }
+        });
       };
 
       return {
@@ -255,10 +291,12 @@ export const RunStore = signalStore(
           persist();
         },
         startExtract: () => run('extract'),
-        startScore: () => run('score'),
+        startScore: () => {
+          if (store.extract().status === 'done') run('score');
+        },
         retry: () => {
-          if (store.score().status === 'failed') run('score');
-          else if (store.extract().status === 'failed') run('extract');
+          if (store.extract().status === 'failed') run('extract');
+          else if (store.score().status === 'failed') run('score');
         },
         restore,
         reset: clear,

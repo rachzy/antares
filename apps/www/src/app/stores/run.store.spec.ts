@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import type {
   JobResult,
   SubscriptionEvent,
@@ -313,6 +313,7 @@ describe('RunStore', () => {
       star,
       extractToken: 'e',
       scoreToken: 's',
+      extractCached: false,
     });
   });
 
@@ -426,5 +427,153 @@ describe('RunStore', () => {
     expect(store.extract().status).toBe('done');
     store.reset();
     expect(store.star()).toBeNull();
+  });
+
+  const save = (saved: object) =>
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ star, extractToken: null, scoreToken: null, ...saved }),
+    );
+
+  it('a confirm while restore is pending ignores the late snapshots', () => {
+    save({ extractToken: 'e' });
+    const store = setup();
+    const pending = new Subject<SubscriptionView>();
+    snapshot.mockReturnValue(pending);
+    store.restore();
+    const other = { ...star, catalog_id: '2' };
+    store.confirm(other);
+    pending.next(view('running'));
+    pending.complete();
+    TestBed.tick();
+    expect(store.star()).toEqual(other);
+    expect(store.extract().status).toBe('idle');
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it('a late 404 after a confirm does not wipe the new star', () => {
+    save({ extractToken: 'e' });
+    const store = setup();
+    const pending = new Subject<SubscriptionView>();
+    snapshot.mockReturnValue(pending);
+    store.restore();
+    store.confirm(star);
+    pending.error(new ApiRequestError(404, 'not_found', 'gone'));
+    TestBed.tick();
+    expect(store.star()).toEqual(star);
+    expect(JSON.parse(localStorage.getItem(KEY) ?? '').star).toEqual(star);
+  });
+
+  it('persists a cached extract and re-runs it on restore', () => {
+    const store = setup();
+    store.confirm(star);
+    extract.mockImplementation(() => {
+      start();
+      pResult.set(features);
+      pLoading.set(false);
+    });
+    store.startExtract();
+    TestBed.tick();
+    expect(JSON.parse(localStorage.getItem(KEY) ?? '').extractCached).toBe(
+      true,
+    );
+    TestBed.resetTestingModule();
+    const restored = setup();
+    extract.mockImplementation(() => {
+      start();
+      pResult.set(features);
+      pLoading.set(false);
+    });
+    restored.restore();
+    TestBed.tick();
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(extract).toHaveBeenCalledWith(body);
+    expect(restored.extract().status).toBe('done');
+    expect(restored.extract().cached).toBe(true);
+    expect(restored.unlocked()).toBe('process');
+  });
+
+  it('startScore does nothing until the extract is done', () => {
+    const store = setup();
+    store.confirm(star);
+    store.startScore();
+    store.startExtract();
+    store.startScore();
+    TestBed.tick();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(store.score().status).toBe('idle');
+  });
+
+  it('retry re-runs the extract first when both slices failed', () => {
+    save({ extractToken: 'e', scoreToken: 's' });
+    const store = setup();
+    snapshot.mockReturnValue(of(view('failed', { error: 'boom' })));
+    store.restore();
+    TestBed.tick();
+    expect(store.extract().status).toBe('failed');
+    expect(store.score().status).toBe('failed');
+    store.retry();
+    expect(extract).toHaveBeenCalledWith(body);
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('a non-404 snapshot error fails the slice and is retryable', () => {
+    save({ extractToken: 'e' });
+    const store = setup();
+    const error = new ApiRequestError(503, 'unavailable', 'down');
+    snapshot.mockReturnValue(throwError(() => error));
+    store.restore();
+    TestBed.tick();
+    expect(store.star()).toEqual(star);
+    expect(store.extract().status).toBe('failed');
+    expect(store.extract().error).toBe(error);
+    store.retry();
+    expect(extract).toHaveBeenCalledWith(body);
+    expect(store.extract().status).toBe('running');
+  });
+
+  it('corrupt JSON in storage is cleared', () => {
+    localStorage.setItem(KEY, '{not json');
+    const store = setup();
+    store.restore();
+    expect(store.star()).toBeNull();
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(snapshot).not.toHaveBeenCalled();
+  });
+
+  it('a 404 on the score token alone clears the run', () => {
+    save({ extractToken: 'e', scoreToken: 's' });
+    const store = setup();
+    snapshot.mockImplementation((t: string) =>
+      t === 'e'
+        ? of(view('done', { result: features }))
+        : throwError(() => new ApiRequestError(404, 'not_found', 'gone')),
+    );
+    store.restore();
+    TestBed.tick();
+    expect(store.star()).toBeNull();
+    expect(store.extract().status).toBe('idle');
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('a cached restore re-tracks an unfinished score after the extract', () => {
+    save({ extractCached: true, scoreToken: 's' });
+    const store = setup();
+    snapshot.mockReturnValue(of(view('running', { kind: 'analyze' })));
+    extract.mockImplementation(() => {
+      start();
+      pResult.set(features);
+      pLoading.set(false);
+    });
+    store.restore();
+    TestBed.tick();
+    expect(store.extract().status).toBe('done');
+    expect(track).toHaveBeenCalledWith('s');
+    expect(store.score().status).toBe('running');
+    expect(store.score().token).toBe('s');
+    expect(JSON.parse(localStorage.getItem(KEY) ?? '')).toMatchObject({
+      scoreToken: 's',
+      extractCached: true,
+    });
   });
 });
