@@ -78,6 +78,7 @@
     "@angular/forms": "~22.1.0",
     "@angular/platform-browser": "~22.1.0",
     "@angular/router": "~22.1.0",
+    "@ngrx/signals": "^22.0.1",
     "@spartan-ng/brain": "^1.4.1",
     "aladin-lite": "^3.9.2-beta",
     "class-variance-authority": "^0.7.0",
