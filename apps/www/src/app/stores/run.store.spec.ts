@@ -524,6 +524,71 @@ describe('RunStore', () => {
     expect(restored.unlocked()).toBe('process');
   });
 
+  it('a cached restore stays unready until the re-run extract settles', () => {
+    save({ extractCached: true });
+    const store = setup();
+    const unlockedWhenReady: string[] = [];
+    extract.mockImplementation(start);
+    store.restore();
+    expect(store.ready()).toBe(false);
+    expect(JSON.parse(localStorage.getItem(KEY) ?? '').extractCached).toBe(
+      true,
+    );
+    TestBed.tick();
+    expect(store.ready()).toBe(false);
+    pResult.set(features);
+    pLoading.set(false);
+    TestBed.tick();
+    if (store.ready()) unlockedWhenReady.push(store.unlocked());
+    expect(unlockedWhenReady).toEqual(['process']);
+    expect(store.extract().status).toBe('done');
+    expect(store.extract().result).toBe(features);
+  });
+
+  it('a cached restore becomes ready when the re-run extract fails', () => {
+    save({ extractCached: true });
+    const store = setup();
+    extract.mockImplementation(start);
+    store.restore();
+    pError.set(new ApiRequestError(503, 'unavailable', 'down'));
+    TestBed.tick();
+    expect(store.ready()).toBe(true);
+    expect(store.extract().status).toBe('failed');
+  });
+
+  it('a cached restore that turns into a real job is ready once tracked', () => {
+    save({ extractCached: true });
+    const store = setup();
+    extract.mockImplementation(start);
+    store.restore();
+    token.set('e');
+    state.set('running');
+    TestBed.tick();
+    expect(store.ready()).toBe(true);
+    expect(store.extract().cached).toBe(false);
+    expect(JSON.parse(localStorage.getItem(KEY) ?? '')).toMatchObject({
+      extractToken: 'e',
+      extractCached: false,
+    });
+  });
+
+  it('startExtract resets a running score and drops its token', () => {
+    const store = setup();
+    store.confirm(star);
+    store.startExtract();
+    runJob('e', features);
+    store.startScore();
+    token.set('s');
+    state.set('running');
+    TestBed.tick();
+    store.startExtract();
+    TestBed.tick();
+    expect(store.score().status).toBe('idle');
+    expect(store.score().token).toBeNull();
+    expect(store.unlocked()).toBe('download');
+    expect(JSON.parse(localStorage.getItem(KEY) ?? '').scoreToken).toBeNull();
+  });
+
   it('startScore does nothing until the extract is done', () => {
     const store = setup();
     store.confirm(star);

@@ -159,10 +159,13 @@ export const RunStore = signalStore(
 
       let restoring = new Subscription();
       let resumeScore: string | null = null;
+      // A cached extract restored by re-running it keeps the run unready until the re-run settles.
+      let settling = false;
 
       const cancel = () => {
         restoring.unsubscribe();
         resumeScore = null;
+        settling = false;
       };
 
       const clear = () => {
@@ -189,12 +192,13 @@ export const RunStore = signalStore(
         };
       };
 
-      const run = (job: Job) => {
+      const run = (job: Job, cached = false) => {
         cancel();
+        settling = cached;
         store._current.set(job);
         patchState(store, {
-          ready: true,
-          [job]: { ...idle, status: 'running' },
+          ...(cached ? {} : { ready: true }),
+          [job]: { ...idle, status: 'running', cached },
         });
         persist();
         if (job === 'extract') pipeline.extract(body());
@@ -213,6 +217,7 @@ export const RunStore = signalStore(
         let next: Stage = {
           ...slice,
           token: token ?? slice.token,
+          cached: token ? false : slice.cached,
           events: token
             ? merge(slice.events, subscription.events())
             : slice.events,
@@ -234,6 +239,10 @@ export const RunStore = signalStore(
           next = { ...next, status: 'done', result, cached: true };
         }
         patchState(store, { [job]: next });
+        if (settling && (finished(next) || next.token)) {
+          settling = false;
+          patchState(store, { ready: true });
+        }
         if (next.token !== slice.token || next.cached !== slice.cached) {
           untracked(persist);
         }
@@ -277,15 +286,14 @@ export const RunStore = signalStore(
           cached ? of(idle) : load(saved.extractToken),
           load(saved.scoreToken),
         ]).subscribe(([extract, score]) => {
-          patchState(store, { ready: true });
           if (extract === 'gone' || score === 'gone') return clear();
           if (cached) {
             patchState(store, { score });
-            run('extract');
+            run('extract', true);
             if (score.status === 'running') resumeScore = score.token;
             return;
           }
-          patchState(store, { extract, score });
+          patchState(store, { extract, score, ready: true });
           const job: Job | null =
             score.status === 'running'
               ? 'score'
@@ -305,7 +313,10 @@ export const RunStore = signalStore(
           patchState(store, { star });
           persist();
         },
-        startExtract: () => run('extract'),
+        startExtract: () => {
+          patchState(store, { score: idle });
+          run('extract');
+        },
         startScore: () => {
           if (store.extract().status === 'done') run('score');
         },
