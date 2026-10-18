@@ -69,6 +69,30 @@ func TestLatestFeaturesRejectsBadCoordinates(t *testing.T) {
 	}
 }
 
+func TestLatestFeaturesRejectsSingleCoordinate(t *testing.T) {
+	h := handler(t, &stub{}, nil)
+	for _, q := range []string{"ra_deg=1", "dec_deg=1", "query=x&ra_deg=1", "query=x&dec_deg=1"} {
+		rec := do(h, "GET", "/targets/features?"+q, "")
+		var body errorBody
+		_ = json.Unmarshal(rec.Body.Bytes(), &body)
+		if rec.Code != 400 || body.Error.Code != "invalid_request" {
+			t.Errorf("%s: status %d, body %s", q, rec.Code, rec.Body)
+		}
+	}
+}
+
+func TestLatestFeaturesRendersBackendInvalidAsBadRequest(t *testing.T) {
+	h := handler(t, &stub{latestFeatures: func(context.Context, service.ResolveInput) (service.FeaturesView, error) {
+		return service.FeaturesView{}, &service.Error{Kind: service.KindInvalid, Message: "give a name or coordinates, not both"}
+	}}, nil)
+	rec := do(h, "GET", "/targets/features?query=x&ra_deg=1&dec_deg=2", "")
+	var body errorBody
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if rec.Code != 400 || body.Error.Code != "invalid_request" {
+		t.Fatalf("status %d, body %s", rec.Code, rec.Body)
+	}
+}
+
 func TestLatestFeaturesMapsServiceErrors(t *testing.T) {
 	h := handler(t, &stub{latestFeatures: func(context.Context, service.ResolveInput) (service.FeaturesView, error) {
 		return service.FeaturesView{}, &service.Error{Kind: service.KindNotFound, Message: "no features yet"}
