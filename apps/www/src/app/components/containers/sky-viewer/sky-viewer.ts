@@ -47,20 +47,30 @@ export class SkyViewer {
   );
   protected readonly percent = computed(() => {
     const fraction = this.pipeline.progress()?.fraction;
-    return fraction === undefined ? null : Math.round(fraction * 100);
+    return fraction === undefined
+      ? null
+      : Math.min(100, Math.max(0, Math.round(fraction * 100)));
   });
   protected readonly topPrediction = computed(() => {
     const row = this.pipeline.result()?.predictions?.[0];
     if (!row) return null;
-    return Object.entries(row)
-      .filter(([key]) => PREDICTION_FIELDS.test(key))
-      .map(([key, value]) => ({
-        key,
-        value:
-          typeof value === 'number' && key.startsWith('prob_')
-            ? value.toFixed(3)
-            : String(value),
-      }));
+    const entries = Object.entries(row);
+    let fields = entries.filter(([key]) => PREDICTION_FIELDS.test(key));
+    if (!fields.length) {
+      fields = entries.filter(
+        ([key, value]) =>
+          key !== 'star_id' &&
+          ['string', 'number', 'boolean'].includes(typeof value),
+      );
+    }
+    if (!fields.length) return null;
+    return fields.map(([key, value]) => ({
+      key,
+      value:
+        typeof value === 'number' && key.startsWith('prob_')
+          ? value.toFixed(3)
+          : String(value),
+    }));
   });
   protected readonly panelVisible = computed(
     () =>

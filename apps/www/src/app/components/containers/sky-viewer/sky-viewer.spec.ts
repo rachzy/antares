@@ -200,6 +200,102 @@ describe('SkyViewer', () => {
     expect(compiled.textContent).not.toContain('0.200');
   });
 
+  function doneWith(predictions: Record<string, unknown>[] | undefined) {
+    stores.target.target.set(kepler);
+    stores.pipeline.status.set('done');
+    stores.pipeline.result.set({
+      target: kepler,
+      cached: false,
+      shaula_version: '1.0.0',
+      features: [],
+      predictions,
+    });
+  }
+
+  it('falls back to the scalar fields when no known prediction field is present', async () => {
+    doneWith([
+      {
+        star_id: 'KIC 8120608',
+        label: 'candidate',
+        score: 0.9,
+        flagged: true,
+        extra: { nested: 1 },
+      },
+    ]);
+    const fixture = await renderLoaded();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const terms = [...compiled.querySelectorAll('dt')].map((dt) =>
+      dt.textContent?.trim(),
+    );
+    expect(terms).toEqual(['label', 'score', 'flagged']);
+    expect(compiled.textContent).toContain('candidate');
+    expect(compiled.textContent).not.toContain('No predictions returned.');
+  });
+
+  it('says no predictions were returned for an empty predictions array', async () => {
+    doneWith([]);
+    const fixture = await renderLoaded();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.querySelector('dl')).toBeNull();
+    expect(compiled.textContent).toContain('No predictions returned.');
+  });
+
+  it('says no predictions were returned when the row has no usable fields', async () => {
+    doneWith([{ star_id: 'KIC 8120608', extra: { nested: 1 } }]);
+    const fixture = await renderLoaded();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.querySelector('dl')).toBeNull();
+    expect(compiled.textContent).toContain('No predictions returned.');
+  });
+
+  it.each([
+    [1.4, '100'],
+    [-0.2, '0'],
+  ])(
+    'clamps a progress fraction of %s to %s percent',
+    async (fraction, expected) => {
+      stores.target.target.set(kepler);
+      stores.pipeline.loading.set(true);
+      stores.pipeline.status.set('running');
+      stores.pipeline.progress.set({ message: 'Working', fraction });
+      const fixture = await renderLoaded();
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const bar = compiled.querySelector('[role="progressbar"]') as HTMLElement;
+      expect(bar.getAttribute('aria-valuenow')).toBe(expected);
+      expect(compiled.textContent).toContain(`(${expected}%)`);
+    },
+  );
+
+  it('announces status and progress politely and errors as alerts', async () => {
+    stores.target.target.set(kepler);
+    stores.target.error.set(
+      new ApiRequestError(404, 'not_found', 'No target near that position.'),
+    );
+    stores.pipeline.loading.set(true);
+    stores.pipeline.status.set('running');
+    stores.pipeline.progress.set({ message: 'Working', fraction: 0.5 });
+    stores.pipeline.error.set(
+      new ApiRequestError(503, 'busy', 'The queue is full.'),
+    );
+    const fixture = await renderLoaded();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const live = [...compiled.querySelectorAll('[aria-live="polite"]')].map(
+      (el) => el.textContent,
+    );
+    expect(live.join(' ')).toContain('Running');
+    expect(live.join(' ')).toContain('Working');
+    const alerts = [...compiled.querySelectorAll('[role="alert"]')].map(
+      (el) => el.textContent,
+    );
+    expect(alerts.join(' ')).toContain('No target near that position.');
+    expect(alerts.join(' ')).toContain('The queue is full.');
+  });
+
   it('shows the pipeline error and the busy retry hint', async () => {
     stores.target.target.set(kepler);
     stores.pipeline.error.set(

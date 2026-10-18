@@ -35,7 +35,7 @@
       </div>
     }
     @if (target.error(); as error) {
-      <p class="text-destructive">{{ error.message }}</p>
+      <p role="alert" class="text-destructive">{{ error.message }}</p>
     }
 
     <button
@@ -47,39 +47,41 @@
       Analyze
     </button>
 
-    @switch (pipeline.status()) {
-      @case ('queued') {
-        <p>Queued (position {{ pipeline.position() ?? '?' }})</p>
-      }
-      @case ('running') {
-        <p>Running</p>
-      }
-    }
-
-    @if (pipeline.loading() && pipeline.progress(); as progress) {
-      <div class="flex flex-col gap-1">
-        <p class="text-xs text-muted-foreground">
-          {{ progress.message }}
-          @if (percent() !== null) {
-            ({{ percent() }}%)
-          }
-        </p>
-        @if (percent() !== null) {
-          <div
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            [attr.aria-valuenow]="percent()"
-            class="h-1.5 w-full overflow-hidden rounded bg-muted"
-          >
-            <div
-              class="h-full bg-primary transition-all"
-              [style.width.%]="percent()"
-            ></div>
-          </div>
+    <div aria-live="polite" class="flex flex-col gap-2 empty:hidden">
+      @switch (pipeline.status()) {
+        @case ('queued') {
+          <p>Queued (position {{ pipeline.position() ?? '?' }})</p>
         }
-      </div>
-    }
+        @case ('running') {
+          <p>Running</p>
+        }
+      }
+
+      @if (pipeline.loading() && pipeline.progress(); as progress) {
+        <div class="flex flex-col gap-1">
+          <p class="text-xs text-muted-foreground">
+            {{ progress.message }}
+            @if (percent() !== null) {
+              ({{ percent() }}%)
+            }
+          </p>
+          @if (percent() !== null) {
+            <div
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              [attr.aria-valuenow]="percent()"
+              class="h-1.5 w-full overflow-hidden rounded bg-muted"
+            >
+              <div
+                class="h-full bg-primary transition-all"
+                [style.width.%]="percent()"
+              ></div>
+            </div>
+          }
+        </div>
+      }
+    </div>
 
     @if (topPrediction(); as fields) {
       <dl class="grid grid-cols-2 gap-x-2 text-xs">
@@ -88,10 +90,12 @@
           <dd class="text-right font-mono">{{ field.value }}</dd>
         }
       </dl>
+    } @else if (pipeline.result()) {
+      <p class="text-muted-foreground">No predictions returned.</p>
     }
 
     @if (pipeline.error(); as error) {
-      <p class="text-destructive">
+      <p role="alert" class="text-destructive">
         {{ error.message }}
         @if (pipeline.retryAfterSeconds(); as seconds) {
           Try again in {{ seconds }} s.
