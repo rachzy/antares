@@ -44,6 +44,7 @@ interface RunState {
   star: Target | null;
   extract: Stage;
   score: Stage;
+  ready: boolean;
 }
 
 interface Saved {
@@ -112,7 +113,12 @@ const finished = (stage: Stage) =>
 
 export const RunStore = signalStore(
   { providedIn: 'root' },
-  withState<RunState>({ star: null, extract: idle, score: idle }),
+  withState<RunState>({
+    star: null,
+    extract: idle,
+    score: idle,
+    ready: false,
+  }),
   withProps(() => ({ _current: signal<Job | null>(null) })),
   withComputed((store) => {
     const downloadDone = computed(
@@ -163,7 +169,12 @@ export const RunStore = signalStore(
         cancel();
         store._current.set(null);
         pipeline.reset();
-        patchState(store, { star: null, extract: idle, score: idle });
+        patchState(store, {
+          star: null,
+          extract: idle,
+          score: idle,
+          ready: true,
+        });
         storage((s) => s.removeItem(KEY));
       };
 
@@ -181,7 +192,10 @@ export const RunStore = signalStore(
       const run = (job: Job) => {
         cancel();
         store._current.set(job);
-        patchState(store, { [job]: { ...idle, status: 'running' } });
+        patchState(store, {
+          ready: true,
+          [job]: { ...idle, status: 'running' },
+        });
         persist();
         if (job === 'extract') pipeline.extract(body());
         else pipeline.analyze(body());
@@ -247,7 +261,7 @@ export const RunStore = signalStore(
 
       const restore = () => {
         const raw = storage((s) => s.getItem(KEY));
-        if (!raw) return;
+        if (!raw) return patchState(store, { ready: true });
         let saved: Saved | null = null;
         try {
           saved = JSON.parse(raw);
@@ -263,6 +277,7 @@ export const RunStore = signalStore(
           cached ? of(idle) : load(saved.extractToken),
           load(saved.scoreToken),
         ]).subscribe(([extract, score]) => {
+          patchState(store, { ready: true });
           if (extract === 'gone' || score === 'gone') return clear();
           if (cached) {
             patchState(store, { score });

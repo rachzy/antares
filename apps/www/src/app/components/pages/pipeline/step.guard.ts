@@ -1,5 +1,7 @@
 import { inject } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { CanActivateFn, Router } from '@angular/router';
+import { filter, map, take } from 'rxjs';
 import { RunStore, type Step } from '../../../stores/run.store';
 
 export const PIPELINE_STEPS = [
@@ -11,10 +13,17 @@ export const PIPELINE_STEPS = [
 
 export function stepGuard(step: Step): CanActivateFn {
   return () => {
-    const unlocked = inject(RunStore).unlocked();
-    if (PIPELINE_STEPS.indexOf(step) <= PIPELINE_STEPS.indexOf(unlocked)) {
-      return true;
-    }
-    return inject(Router).createUrlTree(['/', unlocked]);
+    const run = inject(RunStore);
+    const router = inject(Router);
+    return toObservable(run.ready).pipe(
+      filter(Boolean),
+      take(1),
+      map(() => {
+        const unlocked = run.unlocked();
+        return PIPELINE_STEPS.indexOf(step) <= PIPELINE_STEPS.indexOf(unlocked)
+          ? true
+          : router.createUrlTree(['/', unlocked]);
+      }),
+    );
   };
 }

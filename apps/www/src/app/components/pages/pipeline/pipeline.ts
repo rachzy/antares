@@ -1,6 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
+  ActivatedRoute,
   NavigationEnd,
   Router,
   RouterLink,
@@ -26,17 +27,18 @@ const LABELS = {
 export class Pipeline {
   private readonly router = inject(Router);
   private readonly run = inject(RunStore);
-  private readonly url = toSignal(
+  private readonly route = inject(ActivatedRoute);
+  private readonly path = toSignal(
     this.router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
-      map((e) => e.urlAfterRedirects),
+      map(() => this.route.firstChild?.snapshot.routeConfig?.path),
     ),
-    { initialValue: this.router.url },
+    { initialValue: this.route.firstChild?.snapshot.routeConfig?.path },
   );
 
   protected readonly steps = computed(() => {
     const reached = PIPELINE_STEPS.indexOf(this.run.unlocked());
-    const path = this.url().split(/[?#]/)[0].split('/').pop();
+    const path = this.path();
     return PIPELINE_STEPS.map((id, i) => ({
       id,
       label: LABELS[id],

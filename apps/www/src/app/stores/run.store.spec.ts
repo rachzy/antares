@@ -391,6 +391,37 @@ describe('RunStore', () => {
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 
+  it('is ready only once restore has finished', () => {
+    const store = setup();
+    expect(store.ready()).toBe(false);
+    store.restore();
+    expect(store.ready()).toBe(true);
+  });
+
+  it('is ready after a confirm', () => {
+    const store = setup();
+    store.confirm(star);
+    expect(store.ready()).toBe(true);
+  });
+
+  it('is ready after a restore that finds the run gone', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        star,
+        extractToken: 'e',
+        scoreToken: null,
+        extractCached: false,
+      }),
+    );
+    const store = setup();
+    snapshot.mockReturnValue(
+      throwError(() => new ApiRequestError(404, 'not_found', 'gone')),
+    );
+    store.restore();
+    expect(store.ready()).toBe(true);
+  });
+
   it('restore with nothing stored does nothing', () => {
     const store = setup();
     store.restore();
