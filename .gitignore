@@ -70,3 +70,6 @@ __pycache__/
 
 # Local api configuration
 apps/api/.env
+
+# Playwright MCP output
+.playwright-mcp

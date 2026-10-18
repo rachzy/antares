@@ -41,18 +41,36 @@ func (c FeatureCache) Get(ctx context.Context, targetID int64, paramsHash, shaul
 	if err != nil {
 		return FeatureEntry{}, false, err
 	}
+	return decodeEntry(targetID, paramsHash, shaulaVersion, row.FeaturesJson, row.FeaturesHash, row.CreatedAt, row.ExpiresAt)
+}
 
+// Latest returns the most recently created entry for the target across every parameter set and
+// Shaula version, including superseded and expired ones, so a reader can show what the last
+// extraction produced. The bool reports a hit; a miss is not an error.
+func (c FeatureCache) Latest(ctx context.Context, targetID int64) (FeatureEntry, bool, error) {
+	row, err := db.New(c.DB).LatestFeatures(ctx, targetID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return FeatureEntry{}, false, nil
+	}
+	if err != nil {
+		return FeatureEntry{}, false, err
+	}
+	return decodeEntry(targetID, row.ParamsHash, row.ShaulaVersion, row.FeaturesJson, row.FeaturesHash, row.CreatedAt, row.ExpiresAt)
+}
+
+// decodeEntry turns the stored columns of a feature_cache row into a hit.
+func decodeEntry(targetID int64, paramsHash, shaulaVersion, featuresJSON, featuresHash, createdAt string, expiresAt sql.NullString) (FeatureEntry, bool, error) {
 	var rows []map[string]any
-	if err := json.Unmarshal([]byte(row.FeaturesJson), &rows); err != nil {
+	if err := json.Unmarshal([]byte(featuresJSON), &rows); err != nil {
 		return FeatureEntry{}, false, fmt.Errorf("decode cached features: %w", err)
 	}
 	entry := FeatureEntry{
 		TargetID: targetID, ParamsHash: paramsHash, ShaulaVersion: shaulaVersion,
-		Rows: rows, FeaturesHash: row.FeaturesHash,
+		Rows: rows, FeaturesHash: featuresHash,
 	}
-	entry.CreatedAt, _ = store.ParseTime(row.CreatedAt)
-	if row.ExpiresAt.Valid {
-		if t, err := store.ParseTime(row.ExpiresAt.String); err == nil {
+	entry.CreatedAt, _ = store.ParseTime(createdAt)
+	if expiresAt.Valid {
+		if t, err := store.ParseTime(expiresAt.String); err == nil {
 			entry.ExpiresAt = &t
 		}
 	}

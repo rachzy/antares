@@ -89,3 +89,20 @@ func TestNormalizeAlias(t *testing.T) {
 		}
 	}
 }
+
+func TestByIDReturnsTheStoredTarget(t *testing.T) {
+	ctx := context.Background()
+	targets := store.Targets{DB: testdb.Open(t)}
+	saved, err := targets.Upsert(ctx, kepler186, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, ok, err := targets.ByID(ctx, saved.ID)
+	if err != nil || !ok || got != saved {
+		t.Fatalf("ByID = %+v, %v, %v; want %+v", got, ok, err, saved)
+	}
+	if _, ok, err := targets.ByID(ctx, saved.ID+100); err != nil || ok {
+		t.Fatalf("missing id: ok=%v err=%v", ok, err)
+	}
+}

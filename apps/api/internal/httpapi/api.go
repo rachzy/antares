@@ -22,6 +22,8 @@ type Backend interface {
 	Runs(ctx context.Context) ([]upstream.Run, error)
 	Watch(ctx context.Context, token string, since uint64) (*service.Watch, error)
 	Status(ctx context.Context, token string) (service.SubscriptionView, error)
+	LatestFeatures(ctx context.Context, in service.ResolveInput) (service.FeaturesView, error)
+	LatestFeaturesByToken(ctx context.Context, token string) (service.FeaturesView, error)
 	Versions() (shaula, fang string)
 }
 
@@ -46,11 +48,13 @@ type route struct {
 var routes = []route{
 	{Route{"GET", "/healthz"}, (*API).health},
 	{Route{"POST", "/targets/resolve"}, (*API).resolve},
+	{Route{"GET", "/targets/features"}, (*API).latestFeatures},
 	{Route{"GET", "/ml/runs"}, (*API).runs},
 	{Route{"POST", "/ml/predict"}, (*API).predict},
 	{Route{"POST", "/pipeline/extract"}, (*API).extract},
 	{Route{"POST", "/analyze"}, (*API).analyze},
 	{Route{"GET", "/subscription/{token}"}, (*API).subscription},
+	{Route{"GET", "/subscription/{token}/features"}, (*API).subscriptionFeatures},
 	{Route{"GET", "/openapi.yaml"}, (*API).spec},
 	{Route{"GET", "/docs"}, (*API).docs},
 }

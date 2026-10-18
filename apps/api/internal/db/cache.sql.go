@@ -77,6 +77,35 @@ func (q *Queries) GetPredictions(ctx context.Context, arg GetPredictionsParams) 
 	return i, err
 }
 
+const latestFeatures = `-- name: LatestFeatures :one
+SELECT shaula_version, params_hash, features_json, features_hash, created_at, expires_at FROM feature_cache
+WHERE target_id = ?
+ORDER BY created_at DESC, id DESC LIMIT 1
+`
+
+type LatestFeaturesRow struct {
+	ShaulaVersion string
+	ParamsHash    string
+	FeaturesJson  string
+	FeaturesHash  string
+	CreatedAt     string
+	ExpiresAt     sql.NullString
+}
+
+func (q *Queries) LatestFeatures(ctx context.Context, targetID int64) (LatestFeaturesRow, error) {
+	row := q.db.QueryRowContext(ctx, latestFeatures, targetID)
+	var i LatestFeaturesRow
+	err := row.Scan(
+		&i.ShaulaVersion,
+		&i.ParamsHash,
+		&i.FeaturesJson,
+		&i.FeaturesHash,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const putFeatures = `-- name: PutFeatures :exec
 INSERT INTO feature_cache
   (target_id, params_hash, shaula_version, features_json, features_hash, created_at, expires_at, superseded_at)
