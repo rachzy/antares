@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
-import { exhaustMap, Subscription, takeWhile, timer } from 'rxjs';
+import { Subscription, switchMap, timer } from 'rxjs';
 import { ApiRequestError, ApiService } from '../api/api.service';
 import type {
   JobResult,
@@ -23,6 +23,8 @@ interface SubscriptionState {
 const KEY = 'antares.subscription';
 const MAX_ATTEMPTS = 5;
 const POLL_MS = 2000;
+const MAX_WAIT_MS = 30_000;
+const MAX_PROGRESS = 200;
 const RETRYABLE = new Set([1001, 1006, 1011, 1012, 1013, 1014]);
 const TERMINAL = new Set<SubscriptionPhase>(['done', 'failed', 'dropped']);
 
@@ -43,6 +45,12 @@ function storage(op: (s: Storage) => string | null | void): string | null {
   }
 }
 
+function cap(events: SubscriptionEvent[]): SubscriptionEvent[] {
+  let extra = events.filter((e) => e.type === 'progress').length - MAX_PROGRESS;
+  if (extra <= 0) return events;
+  return events.filter((e) => e.type !== 'progress' || --extra < 0);
+}
+
 function phaseOf(e: SubscriptionEvent): SubscriptionPhase {
   if (e.stage === 'queued' || e.stage === 'dropped') return e.stage;
   return 'running';
@@ -58,7 +66,6 @@ export const SubscriptionStore = signalStore(
     const finished = () => TERMINAL.has(store.state());
 
     const apply = (events: SubscriptionEvent[]) => {
-      attempts = 0;
       let lastSeq = store.lastSeq();
       const fresh: SubscriptionEvent[] = [];
       const patch: Partial<SubscriptionState> = {};
@@ -77,9 +84,10 @@ export const SubscriptionStore = signalStore(
         }
       }
       if (!fresh.length) return;
+      attempts = 0;
       patchState(store, {
         ...patch,
-        events: [...store.events(), ...fresh],
+        events: cap([...store.events(), ...fresh]),
         lastSeq,
       });
     };
@@ -91,7 +99,7 @@ export const SubscriptionStore = signalStore(
         .map((m): SubscriptionEvent => ({ ...m, type: 'state' }));
       patchState(store, {
         state: view.state,
-        events: [...store.events(), ...fresh],
+        events: cap([...store.events(), ...fresh]),
         lastSeq: Math.max(lastSeq, view.last_seq, ...fresh.map((e) => e.seq)),
         result: view.result ?? null,
         error: view.error
@@ -102,21 +110,26 @@ export const SubscriptionStore = signalStore(
 
     const forget = () => storage((s) => s.removeItem(KEY));
 
-    const poll = (s: Subscription, token: string) =>
+    const poll = (s: Subscription, token: string, failures = 0, delay = 0) =>
       s.add(
-        timer(0, POLL_MS)
-          .pipe(
-            exhaustMap(() => api.snapshot(token)),
-            takeWhile((v) => !TERMINAL.has(v.state), true),
-          )
+        timer(delay)
+          .pipe(switchMap(() => api.snapshot(token)))
           .subscribe({
-            next: applyView,
+            next: (view) => {
+              applyView(view);
+              if (!TERMINAL.has(view.state)) poll(s, token, 0, POLL_MS);
+            },
             error: (error: ApiRequestError) => {
-              if (error.status === 404) {
+              if (error?.status === 404) {
                 forget();
                 patchState(store, { ...initial, error });
-              } else {
+              } else if (failures + 1 >= MAX_ATTEMPTS) {
                 patchState(store, { error });
+              } else {
+                const wait = error?.retryAfter
+                  ? error.retryAfter * 1000
+                  : 1000 * 2 ** failures;
+                poll(s, token, failures + 1, Math.min(wait, MAX_WAIT_MS));
               }
             },
           }),

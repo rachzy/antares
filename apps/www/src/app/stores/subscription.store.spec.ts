@@ -214,6 +214,126 @@ describe('SubscriptionStore', () => {
     expect(store.token()).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
   });
+
+  describe('snapshot polling errors', () => {
+    const fail = (status: number, retryAfter?: number) =>
+      throwError(
+        () => new ApiRequestError(status, 'unavailable', 'x', retryAfter),
+      );
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.stubGlobal('WebSocket', undefined);
+    });
+
+    it('retries transient errors with backoff and honours retryAfter', () => {
+      const store = setup();
+      snapshot
+        .mockReturnValueOnce(fail(503))
+        .mockReturnValueOnce(fail(0))
+        .mockReturnValueOnce(fail(429, 7))
+        .mockReturnValueOnce(fail(503, 600))
+        .mockReturnValueOnce(of(view({ state: 'running' })));
+      store.track('t');
+      vi.advanceTimersByTime(0);
+      expect(snapshot).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(999);
+      expect(snapshot).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1);
+      expect(snapshot).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(2000);
+      expect(snapshot).toHaveBeenCalledTimes(3);
+      vi.advanceTimersByTime(6999);
+      expect(snapshot).toHaveBeenCalledTimes(3);
+      vi.advanceTimersByTime(1);
+      expect(snapshot).toHaveBeenCalledTimes(4);
+      expect(store.state()).toBe('queued');
+      expect(store.error()).toBeNull();
+      expect(store.token()).toBe('t');
+      vi.advanceTimersByTime(29_999);
+      expect(snapshot).toHaveBeenCalledTimes(4);
+      vi.advanceTimersByTime(1);
+      expect(snapshot).toHaveBeenCalledTimes(5);
+      expect(store.state()).toBe('running');
+    });
+
+    it('sets error and stops after 5 consecutive failures', () => {
+      const store = setup();
+      snapshot.mockReturnValue(fail(503));
+      store.track('t');
+      vi.advanceTimersByTime(120_000);
+      expect(snapshot).toHaveBeenCalledTimes(5);
+      expect(store.error()?.status).toBe(503);
+      expect(store.token()).toBe('t');
+    });
+  });
+
+  it('only resets reconnect attempts after a fresh event', () => {
+    vi.useFakeTimers();
+    const store = setup();
+    store.track('t');
+    last().next([ev(1)]);
+    last().error({ code: 1006 });
+    vi.advanceTimersByTime(1000);
+    expect(watchCalls).toHaveLength(2);
+    last().next([ev(1)]);
+    last().error({ code: 1006 });
+    vi.advanceTimersByTime(1000);
+    expect(watchCalls).toHaveLength(2);
+    vi.advanceTimersByTime(1000);
+    expect(watchCalls).toHaveLength(3);
+    last().next([ev(2)]);
+    last().error({ code: 1006 });
+    vi.advanceTimersByTime(1000);
+    expect(watchCalls).toHaveLength(4);
+    expect(store.lastSeq()).toBe(2);
+  });
+
+  it('track(B) after track(A) never interleaves A', () => {
+    vi.useFakeTimers();
+    const store = setup();
+    store.track('a');
+    const a = last();
+    a.next([ev(1)]);
+    a.error({ code: 1006 });
+    store.track('b');
+    expect(a.observed).toBe(false);
+    last().next([ev(1, 'state', { stage: 'queued' })]);
+    vi.advanceTimersByTime(60_000);
+    expect(watchCalls).toEqual([
+      ['a', undefined],
+      ['b', undefined],
+    ]);
+    expect(store.token()).toBe('b');
+    expect(store.events()).toEqual([ev(1, 'state', { stage: 'queued' })]);
+  });
+
+  it('stop() during a pending reconnect leaves no timer or socket', () => {
+    vi.useFakeTimers();
+    const store = setup();
+    store.track('t');
+    last().error({ code: 1013 });
+    store.stop();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(60_000);
+    expect(watchCalls).toHaveLength(1);
+    expect(streams.every((s) => !s.observed)).toBe(true);
+  });
+
+  it('keeps non-progress events and only the latest 200 progress events', () => {
+    const store = setup();
+    store.track('t');
+    last().next([ev(1, 'state', { stage: 'running' })]);
+    last().next(Array.from({ length: 250 }, (_, i) => ev(i + 2)));
+    last().next([ev(252, 'result', { payload: result })]);
+    const events = store.events();
+    expect(events).toHaveLength(202);
+    expect(events[0].seq).toBe(1);
+    expect(events[1].seq).toBe(52);
+    expect(events.at(-1)?.type).toBe('result');
+    expect(events.filter((e) => e.type === 'progress')).toHaveLength(200);
+    expect(store.lastSeq()).toBe(252);
+  });
 });
 
 function m(seq: number, stage: string) {
