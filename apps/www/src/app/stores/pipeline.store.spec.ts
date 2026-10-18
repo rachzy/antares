@@ -30,6 +30,11 @@ describe('PipelineStore', () => {
     subError.set(null);
     track.mockReset();
     stop.mockReset();
+    stop.mockImplementation(() => {
+      state.set('idle');
+      subResult.set(null);
+      subError.set(null);
+    });
     TestBed.configureTestingModule({
       providers: [
         { provide: ApiService, useValue: api },
@@ -178,5 +183,38 @@ describe('PipelineStore', () => {
     store.reset();
     expect(stop).toHaveBeenCalledTimes(1);
     expect(store.result()).toBeNull();
+  });
+
+  it('reflects a resumed job with no extract call', () => {
+    const store = setup({});
+    state.set('running');
+    TestBed.tick();
+    expect(store.loading()).toBe(true);
+    state.set('done');
+    subResult.set(result);
+    TestBed.tick();
+    expect(store.result()).toBe(result);
+    expect(store.loading()).toBe(false);
+  });
+
+  it('ends loading when the subscription resets to idle with an error', () => {
+    const store = setup({});
+    state.set('running');
+    TestBed.tick();
+    state.set('idle');
+    subError.set(new ApiRequestError(404, 'not_found', 'gone'));
+    TestBed.tick();
+    expect(store.error()?.code).toBe('not_found');
+    expect(store.loading()).toBe(false);
+  });
+
+  it('ends loading when polling gave up while still running', () => {
+    const store = setup({});
+    state.set('running');
+    TestBed.tick();
+    subError.set(new ApiRequestError(0, 'unavailable', 'down'));
+    TestBed.tick();
+    expect(store.error()?.code).toBe('unavailable');
+    expect(store.loading()).toBe(false);
   });
 });

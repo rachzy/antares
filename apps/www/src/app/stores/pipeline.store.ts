@@ -100,16 +100,18 @@ export const PipelineStore = signalStore(
     onInit: () => {
       effect(() => {
         const state = subscription.state();
-        if (store.position() === null) return;
+        const error = subscription.error();
         if (state === 'done') {
           patchState(store, { result: subscription.result(), loading: false });
-        } else if (state === 'failed' || state === 'dropped') {
+        } else if (state === 'failed' || state === 'dropped' || error) {
           patchState(store, {
             error:
-              subscription.error() ??
+              error ??
               new ApiRequestError(0, 'internal', 'The job was dropped.'),
             loading: false,
           });
+        } else if (state !== 'idle') {
+          patchState(store, { loading: true });
         }
       });
     },
