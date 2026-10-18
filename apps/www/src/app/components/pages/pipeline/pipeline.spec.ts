@@ -16,7 +16,15 @@ describe('Pipeline', () => {
       imports: [Pipeline],
       providers: [
         provideRouter(pipelineRoutes),
-        { provide: RunStore, useValue: { unlocked, ready: signal(true) } },
+        {
+          provide: RunStore,
+          useValue: {
+            unlocked,
+            ready: signal(true),
+            extract: signal({ status: 'running', events: [], cached: false }),
+            downloadDone: signal(false),
+          },
+        },
       ],
     }).compileComponents();
   });

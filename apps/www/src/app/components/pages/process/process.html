@@ -1,0 +1,40 @@
+@if (run.extract().cached) {
+  <an-job-log status="done" note="loaded from cache" />
+} @else {
+  <an-job-log
+    [events]="events()"
+    [status]="run.extract().status"
+    [done]="done()"
+  />
+}
+<div class="flex items-center justify-end gap-2">
+  @if (run.extract().status === 'failed') {
+    <button hlmBtn variant="outline" type="button" (click)="run.retry()">
+      Retry
+    </button>
+  }
+  @if (run.processDone()) {
+    @if (run.candidates() === 0) {
+      <p class="text-muted-foreground mr-auto text-sm">No candidates found</p>
+    }
+    <button
+      hlmBtn
+      variant="outline"
+      type="button"
+      [disabled]="run.candidates() === 0"
+      (click)="download()"
+    >
+      Download extracted features
+    </button>
+    <button
+      hlmBtn
+      data-score
+      type="button"
+      [hlmTooltip]="tooltip"
+      [disabled]="run.candidates() === 0"
+      (click)="score()"
+    >
+      Score candidates
+    </button>
+  }
+</div>

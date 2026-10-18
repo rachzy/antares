@@ -1,0 +1,19 @@
+@if (run.extract().cached) {
+  <an-job-log status="done" note="loaded from cache" />
+} @else {
+  <an-job-log
+    [events]="events()"
+    [status]="status()"
+    done="light curves downloaded"
+  />
+}
+<div class="flex items-center justify-end gap-2">
+  @if (run.extract().status === 'failed') {
+    <button hlmBtn variant="outline" type="button" (click)="run.retry()">
+      Retry
+    </button>
+  }
+  @if (run.downloadDone()) {
+    <a hlmBtn routerLink="/process">Continue to processing</a>
+  }
+</div>
