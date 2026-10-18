@@ -1,10 +1,15 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { appRoutes } from './app.routes';
+import { ErrorToaster } from './components/ui/error-toaster';
 import { Welcome } from './components/pages/welcome/welcome';
 import { HealthStore } from './stores/health.store';
 import { RunStore } from './stores/run.store';
+
+@Component({ selector: 'an-error-toaster', template: '' })
+class ErrorToasterStub {}
 
 describe('App', () => {
   const health = { check: vi.fn() };
@@ -20,7 +25,12 @@ describe('App', () => {
         { provide: HealthStore, useValue: health },
         { provide: RunStore, useValue: run },
       ],
-    }).compileComponents();
+    })
+      .overrideComponent(App, {
+        remove: { imports: [ErrorToaster] },
+        add: { imports: [ErrorToasterStub] },
+      })
+      .compileComponents();
   });
 
   it('checks api health and restores the saved run on init', async () => {

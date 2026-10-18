@@ -1,10 +1,11 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { ErrorToaster } from './components/ui/error-toaster';
 import { HealthStore } from './stores/health.store';
 import { RunStore } from './stores/run.store';
 
 @Component({
-  imports: [RouterModule],
+  imports: [RouterModule, ErrorToaster],
   selector: 'an-root',
   templateUrl: './app.html',
 })
