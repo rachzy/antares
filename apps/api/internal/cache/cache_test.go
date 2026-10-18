@@ -255,3 +255,65 @@ func TestPredictionCacheRoundTrip(t *testing.T) {
 		t.Fatal("run id lost")
 	}
 }
+
+func TestLatestFeaturesPicksTheNewestAcrossVersions(t *testing.T) {
+	ctx := context.Background()
+	db := testdb.Open(t)
+	id := targetID(t, store.Targets{DB: db})
+	features := cache.FeatureCache{DB: db}
+	t0 := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	// The older entry stays live; the newer one is superseded by the current version "2".
+	for i, e := range []struct{ version, params string }{{"2", "a"}, {"1", "b"}} {
+		err := features.Put(ctx, cache.FeatureEntry{TargetID: id, ParamsHash: e.params, ShaulaVersion: e.version,
+			Rows: []map[string]any{{"i": float64(i)}}, CreatedAt: t0.Add(time.Duration(i) * time.Hour)})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, err := features.Supersede(ctx, "2", t0); err != nil || n != 1 {
+		t.Fatalf("Supersede = %d, %v; want 1", n, err)
+	}
+	now := t0.Add(3 * time.Hour)
+	if _, ok, err := features.Get(ctx, id, "b", "1", now); ok || err != nil {
+		t.Fatalf("Get(newer) = %v, %v; want a miss because it is superseded", ok, err)
+	}
+	if _, ok, err := features.Get(ctx, id, "a", "2", now); !ok || err != nil {
+		t.Fatalf("Get(older) = %v, %v; want the live entry to hit", ok, err)
+	}
+
+	got, ok, err := features.Latest(ctx, id)
+	if err != nil || !ok {
+		t.Fatalf("Latest = %v, %v; want a hit", ok, err)
+	}
+	if got.ParamsHash != "b" || got.ShaulaVersion != "1" || !got.CreatedAt.Equal(t0.Add(time.Hour)) {
+		t.Errorf("Latest = %+v; want the newer superseded entry (params b, version 1)", got)
+	}
+	if got.FeaturesHash == "" || len(got.Rows) != 1 || got.Rows[0]["i"] != 1.0 {
+		t.Errorf("Latest rows/hash = %v / %q", got.Rows, got.FeaturesHash)
+	}
+}
+
+func TestLatestFeaturesMissesForUnknownTarget(t *testing.T) {
+	features := cache.FeatureCache{DB: testdb.Open(t)}
+	if _, ok, err := features.Latest(context.Background(), 12345); ok || err != nil {
+		t.Errorf("Latest = %v, %v; want a clean miss", ok, err)
+	}
+}
+
+func TestLatestFeaturesIgnoresExpiry(t *testing.T) {
+	ctx := context.Background()
+	db := testdb.Open(t)
+	id := targetID(t, store.Targets{DB: db})
+	features := cache.FeatureCache{DB: db}
+	created := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	expired := created.Add(time.Hour)
+	err := features.Put(ctx, cache.FeatureEntry{TargetID: id, ParamsHash: "p", ShaulaVersion: "v",
+		Rows: []map[string]any{{"a": 1.0}}, CreatedAt: created, ExpiresAt: &expired})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok, err := features.Latest(ctx, id)
+	if err != nil || !ok || got.ExpiresAt == nil {
+		t.Errorf("Latest = %+v, %v, %v; want the expired entry", got, ok, err)
+	}
+}

@@ -29,6 +29,9 @@ type stub struct {
 	watch   func(context.Context, string, uint64) (*service.Watch, error)
 	status  func(context.Context, string) (service.SubscriptionView, error)
 
+	latestFeatures        func(context.Context, service.ResolveInput) (service.FeaturesView, error)
+	latestFeaturesByToken func(context.Context, string) (service.FeaturesView, error)
+
 	shaulaVersion, fangVersion string
 }
 
@@ -79,6 +82,20 @@ func (s *stub) Status(ctx context.Context, token string) (service.SubscriptionVi
 		return service.SubscriptionView{}, errUnexpected
 	}
 	return s.status(ctx, token)
+}
+
+func (s *stub) LatestFeatures(ctx context.Context, in service.ResolveInput) (service.FeaturesView, error) {
+	if s.latestFeatures == nil {
+		return service.FeaturesView{}, errUnexpected
+	}
+	return s.latestFeatures(ctx, in)
+}
+
+func (s *stub) LatestFeaturesByToken(ctx context.Context, token string) (service.FeaturesView, error) {
+	if s.latestFeaturesByToken == nil {
+		return service.FeaturesView{}, errUnexpected
+	}
+	return s.latestFeaturesByToken(ctx, token)
 }
 
 func (s *stub) Versions() (string, string) { return s.shaulaVersion, s.fangVersion }

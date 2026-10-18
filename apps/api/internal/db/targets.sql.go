@@ -45,6 +45,37 @@ func (q *Queries) TargetByAlias(ctx context.Context, arg TargetByAliasParams) (T
 	return i, err
 }
 
+const targetByID = `-- name: TargetByID :one
+SELECT id, catalog, catalog_id, ra_deg, dec_deg, display_name, designation
+FROM targets
+WHERE id = ?
+`
+
+type TargetByIDRow struct {
+	ID          int64
+	Catalog     string
+	CatalogID   string
+	RaDeg       float64
+	DecDeg      float64
+	DisplayName string
+	Designation string
+}
+
+func (q *Queries) TargetByID(ctx context.Context, id int64) (TargetByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, targetByID, id)
+	var i TargetByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Catalog,
+		&i.CatalogID,
+		&i.RaDeg,
+		&i.DecDeg,
+		&i.DisplayName,
+		&i.Designation,
+	)
+	return i, err
+}
+
 const upsertAlias = `-- name: UpsertAlias :exec
 INSERT INTO target_aliases (alias, catalog, target_id) VALUES (?, ?, ?)
 ON CONFLICT (alias, catalog) DO UPDATE SET target_id = excluded.target_id
