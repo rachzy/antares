@@ -88,3 +88,19 @@ func (t Targets) ByAlias(ctx context.Context, alias, catalog string) (Target, bo
 		DisplayName: row.DisplayName, Designation: row.Designation,
 	}, true, nil
 }
+
+// ByID returns the target with the given id; the bool is false, with a nil error, when there is
+// none.
+func (t Targets) ByID(ctx context.Context, id int64) (Target, bool, error) {
+	row, err := db.New(t.DB).TargetByID(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Target{}, false, nil
+	}
+	if err != nil {
+		return Target{}, false, err
+	}
+	return Target{
+		ID: row.ID, Catalog: row.Catalog, CatalogID: row.CatalogID, RA: row.RaDeg, Dec: row.DecDeg,
+		DisplayName: row.DisplayName, Designation: row.Designation,
+	}, true, nil
+}
