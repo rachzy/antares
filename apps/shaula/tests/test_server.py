@@ -24,7 +24,7 @@ def test_resolve_target_is_answered_while_every_extraction_slot_is_busy(monkeypa
     monkeypatch.setattr(
         servicer_module,
         "resolve",
-        lambda query, mission: ResolvedTarget(
+        lambda query, mission, **_: ResolvedTarget(
             catalog="KIC", catalog_id="1", ra_deg=1.0, dec_deg=2.0, display_name="x"
         ),
     )

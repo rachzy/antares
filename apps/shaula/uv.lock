@@ -2395,7 +2395,7 @@ wheels = [
 [[package]]
 name = "shaula"
 version = "0.0.1a0"
-source = { git = "https://github.com/rachzy/shaula?tag=v0.0.1-alpha#07981e814b8cc51ed71c5f19c81d0c0bd7754277" }
+source = { git = "https://github.com/rachzy/shaula?tag=v0.0.1-alpha#e2521d69d250949c6c605671dbedf76d7638a5d2" }
 dependencies = [
     { name = "astropy" },
     { name = "astroquery" },

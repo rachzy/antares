@@ -62,3 +62,11 @@ __pycache__/
 
 # Local service data (lightcurve cache, trained models)
 .data/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Local api configuration
+apps/api/.env
