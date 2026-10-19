@@ -14,6 +14,7 @@ import { lucideLoader2, lucideSearch } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
@@ -31,6 +32,7 @@ export const MAX_CONFIRM_FOV_DEG = 0.05;
     FormsModule,
     NgIcon,
     HlmButtonImports,
+    HlmCheckboxImports,
     HlmInputImports,
     HlmAlertDialogImports,
   ],
@@ -47,6 +49,7 @@ export class Select {
   protected readonly pending = signal<Target | null>(null);
   protected readonly query = signal('');
   protected readonly searching = signal(false);
+  protected readonly downloadAll = signal(false);
   protected readonly resolving = this.targets.loading;
 
   protected readonly star = this.run.star;
@@ -115,7 +118,7 @@ export class Select {
   }
 
   protected extract(): void {
-    this.run.startExtract();
+    this.run.startExtract(this.downloadAll());
     void this.router.navigate(['/download']);
   }
 }

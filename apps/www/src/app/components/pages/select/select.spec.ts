@@ -284,6 +284,20 @@ describe('Select', () => {
     expect(navigate).toHaveBeenCalledWith(['/download']);
   });
 
+  it('leaves Download all data points unchecked and sends the choice on Extract', async () => {
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const { el, fixture, button } = await hit();
+    const box = el.querySelector<HTMLElement>('hlm-checkbox button');
+    expect(el.textContent).toContain('Download all data points');
+    expect(box?.getAttribute('aria-checked')).toBe('false');
+    button('Extract lightcurve features')?.click();
+    expect(startExtract).toHaveBeenLastCalledWith(false);
+    box?.click();
+    await fixture.whenStable();
+    button('Extract lightcurve features')?.click();
+    expect(startExtract).toHaveBeenLastCalledWith(true);
+  });
+
   const dialog = () =>
     document.body.querySelector<HTMLElement>(
       '[data-slot="alert-dialog-content"]',

@@ -45,6 +45,7 @@ interface RunState {
   extract: Stage;
   score: Stage;
   ready: boolean;
+  downloadAll: boolean;
 }
 
 interface Saved {
@@ -52,6 +53,7 @@ interface Saved {
   extractToken: string | null;
   scoreToken: string | null;
   extractCached: boolean;
+  downloadAll?: boolean;
 }
 
 const KEY = 'antares.run';
@@ -118,6 +120,7 @@ export const RunStore = signalStore(
     extract: idle,
     score: idle,
     ready: false,
+    downloadAll: false,
   }),
   withProps(() => ({ _current: signal<Job | null>(null) })),
   withComputed((store) => {
@@ -153,6 +156,7 @@ export const RunStore = signalStore(
           extractToken: store.extract().token,
           scoreToken: store.score().token,
           extractCached: store.extract().cached,
+          downloadAll: store.downloadAll(),
         };
         storage((s) => s.setItem(KEY, JSON.stringify(saved)));
       };
@@ -177,6 +181,7 @@ export const RunStore = signalStore(
           extract: idle,
           score: idle,
           ready: true,
+          downloadAll: false,
         });
         storage((s) => s.removeItem(KEY));
       };
@@ -189,6 +194,7 @@ export const RunStore = signalStore(
           ra_deg: star.ra_deg,
           dec_deg: star.dec_deg,
           ...(mission ? { mission } : {}),
+          ...(store.downloadAll() ? { download_all: true } : {}),
         };
       };
 
@@ -281,7 +287,12 @@ export const RunStore = signalStore(
         const cached = !!saved.extractCached;
         cancel();
         store._current.set(null);
-        patchState(store, { star: saved.star, extract: idle, score: idle });
+        patchState(store, {
+          star: saved.star,
+          extract: idle,
+          score: idle,
+          downloadAll: !!saved.downloadAll,
+        });
         restoring = forkJoin([
           cached ? of(idle) : load(saved.extractToken),
           load(saved.scoreToken),
@@ -313,8 +324,8 @@ export const RunStore = signalStore(
           patchState(store, { star });
           persist();
         },
-        startExtract: () => {
-          patchState(store, { score: idle });
+        startExtract: (downloadAll = false) => {
+          patchState(store, { score: idle, downloadAll });
           run('extract');
         },
         startScore: () => {
