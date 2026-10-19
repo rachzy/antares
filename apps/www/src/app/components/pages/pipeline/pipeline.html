@@ -1,0 +1,80 @@
+<div
+  class="bg-background text-foreground flex h-screen flex-col gap-4 p-4 pt-14"
+>
+  <nav aria-label="Pipeline" class="flex items-center pr-10">
+    @for (step of steps(); track step.id; let last = $last) {
+      @if (step.state === 'locked') {
+        <span
+          data-step
+          data-state="locked"
+          tabindex="0"
+          role="link"
+          aria-disabled="true"
+          hlmTooltip="Locked until the previous step finishes"
+          position="bottom"
+          class="text-muted-foreground focus-visible:ring-ring/50 rounded-sm outline-none focus-visible:ring-[3px] flex cursor-not-allowed items-center gap-2 text-sm opacity-45"
+        >
+          <ng-container
+            [ngTemplateOutlet]="content"
+            [ngTemplateOutletContext]="{ $implicit: step }"
+          />
+        </span>
+      } @else {
+        <a
+          data-step
+          [attr.data-state]="step.state"
+          [routerLink]="['/', step.id]"
+          [attr.aria-current]="step.state === 'current' ? 'step' : null"
+          class="focus-visible:ring-ring/50 rounded-sm outline-none focus-visible:ring-[3px] flex items-center gap-2 text-sm"
+          [class.text-muted-foreground]="step.state !== 'current'"
+        >
+          <ng-container
+            [ngTemplateOutlet]="content"
+            [ngTemplateOutletContext]="{ $implicit: step }"
+          />
+        </a>
+      }
+      @if (!last) {
+        <div
+          class="mx-2.5 h-0.5 flex-1 rounded-sm"
+          [class.bg-primary]="step.state === 'done'"
+          [class.bg-muted]="step.state !== 'done'"
+        ></div>
+      }
+    }
+  </nav>
+  <ng-template #content let-step>
+    <span
+      class="grid size-[22px] place-items-center rounded-full border-[1.5px] text-xs"
+      [class.border-border]="step.state === 'open' || step.state === 'locked'"
+      [class.border-primary]="step.state === 'done' || step.state === 'current'"
+      [class.bg-primary]="step.state === 'current'"
+      [class.text-primary-foreground]="step.state === 'current'"
+      [class.text-primary]="step.state === 'done'"
+    >
+      @if (step.state === 'done') {
+        <svg
+          data-check
+          viewBox="0 0 24 24"
+          class="size-3.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+      } @else {
+        {{ step.number }}
+      }
+    </span>
+    <span [class]="step.state === 'current' ? '' : 'max-sm:sr-only'">{{
+      step.label
+    }}</span>
+  </ng-template>
+  <main class="flex min-h-0 flex-1 flex-col">
+    <router-outlet></router-outlet>
+  </main>
+</div>

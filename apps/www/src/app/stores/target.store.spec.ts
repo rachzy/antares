@@ -77,4 +77,13 @@ describe('TargetStore', () => {
     expect(store.target()).toBeNull();
     expect(store.loading()).toBe(false);
   });
+
+  it('reset forgets the target and any error', () => {
+    const store = setup(() => of(target));
+    store.resolveByName('Kepler-1');
+    store.reset();
+    expect(store.target()).toBeNull();
+    expect(store.error()).toBeNull();
+    expect(store.loading()).toBe(false);
+  });
 });

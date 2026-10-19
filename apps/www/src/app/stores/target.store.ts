@@ -32,6 +32,8 @@ export const TargetStore = signalStore(
       ),
     );
     return {
+      reset: () =>
+        patchState(store, { target: null, loading: false, error: null }),
       resolveByName: (query: string, mission?: string) =>
         resolve({ query, mission }),
       resolveByPosition: (ra_deg: number, dec_deg: number, mission?: string) =>

@@ -1,0 +1,88 @@
+@if (star(); as s) {
+  <section
+    class="bg-card flex shrink-0 flex-col md:w-1/3 gap-2 rounded-xl p-4 shadow-sm"
+  >
+    <h2 class="font-serif text-2xl font-semibold">{{ s.display_name }}</h2>
+    <p class="text-muted-foreground text-xs">
+      {{ s.designation || s.catalog + ' ' + s.catalog_id }} &middot; RA
+      {{ s.ra_deg.toFixed(2) }}&deg; &middot; Dec
+      {{ s.dec_deg.toFixed(2) }}&deg;
+    </p>
+    <a
+      [href]="catalogUrl()"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="text-foreground hover:text-primary text-sm underline"
+      >View on Stellar Catalog</a
+    >
+    <div class="flex-1"></div>
+    <button hlmBtn type="button" (click)="extract()">
+      Extract lightcurve features
+    </button>
+  </section>
+}
+<div class="relative min-h-64 min-w-0 flex-1 overflow-hidden rounded-xl">
+  <an-sky-viewer />
+  <form
+    class="absolute top-14 left-1/2 flex w-[min(22rem,calc(100%-1.5rem))] -translate-x-1/2 items-center gap-1.5 md:top-3"
+    (submit)="$event.preventDefault(); search()"
+  >
+    <input
+      hlmInput
+      type="search"
+      name="query"
+      aria-label="Search the sky by object name"
+      placeholder="Search a star or object, e.g. Kepler-186"
+      class="bg-card/90 backdrop-blur-sm"
+      [ngModel]="query()"
+      (ngModelChange)="query.set($event)"
+    />
+    <button
+      hlmBtn
+      size="icon"
+      type="submit"
+      aria-label="Search"
+      [disabled]="searching() || !query().trim()"
+    >
+      <ng-icon
+        [name]="searching() ? 'lucideLoader2' : 'lucideSearch'"
+        [class.animate-spin]="searching()"
+      />
+    </button>
+  </form>
+  <div
+    class="bg-card/90 absolute bottom-14 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 rounded-xl p-3.5 shadow-sm backdrop-blur-sm"
+  >
+    <button hlmBtn type="button" [disabled]="!canConfirm()" (click)="confirm()">
+      @if (resolving()) {
+        <ng-icon data-spinner name="lucideLoader2" class="animate-spin" />
+      }
+      Confirm star
+    </button>
+    @if (tooWide()) {
+      <p class="text-muted-foreground text-xs">
+        Zoom in until a single star sits inside the ring.
+      </p>
+    }
+  </div>
+</div>
+<hlm-alert-dialog
+  [state]="pending() ? 'open' : 'closed'"
+  (closed)="pending.set(null)"
+>
+  <hlm-alert-dialog-content *hlmAlertDialogPortal>
+    <hlm-alert-dialog-header>
+      <h2 hlmAlertDialogTitle>Replace the star?</h2>
+      <p hlmAlertDialogDescription>
+        A job is still running for {{ star()?.display_name }}. Picking
+        {{ pending()?.display_name }} discards it.
+      </p>
+    </hlm-alert-dialog-header>
+    <hlm-alert-dialog-footer>
+      <button hlmAlertDialogCancel>Keep current job</button>
+      <button hlmAlertDialogAction variant="destructive" (click)="replace()">
+        Replace and discard the running job
+      </button>
+    </hlm-alert-dialog-footer>
+  </hlm-alert-dialog-content>
+</hlm-alert-dialog>

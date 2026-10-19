@@ -1,0 +1,16 @@
+<main class="welcome">
+  <header class="welcome__intro">
+    <p class="welcome__lede" [class.welcome__lede--leaving]="brand.leaving()">
+      A tool for hunting exoplanets across the stars, watching for the faint dip
+      in starlight when a world crosses in front of its sun.
+    </p>
+  </header>
+
+  <div class="welcome__stage">
+    <an-sky-viewer class="welcome__sky" />
+
+    <button type="button" class="welcome__expand" (click)="expand()">
+      <span class="welcome__expand-label">Look closer</span>
+    </button>
+  </div>
+</main>

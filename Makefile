@@ -14,9 +14,10 @@ API_PORT   ?= 8081
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-install: ## Install npm and Python dependencies
+install: ## Install npm, Python and Go protobuf plugin dependencies
 	npm install
 	npm run install:py
+	npm run install:go
 
 setup: install proto ## Install everything and generate protobuf stubs
 

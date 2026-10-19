@@ -1,33 +1,48 @@
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
 import { appRoutes } from './app.routes';
-import { SkyViewer } from './components/containers/sky-viewer/sky-viewer';
+import { ErrorToaster } from './components/ui/error-toaster';
+import { Welcome } from './components/pages/welcome/welcome';
 import { HealthStore } from './stores/health.store';
-import { SubscriptionStore } from './stores/subscription.store';
+import { RunStore } from './stores/run.store';
+
+@Component({ selector: 'an-error-toaster', template: '' })
+class ErrorToasterStub {}
 
 describe('App', () => {
   const health = { check: vi.fn() };
-  const subscription = { resume: vi.fn() };
+  const run = {
+    restore: vi.fn(),
+    star: signal(null),
+    extract: signal({ token: null }),
+    score: signal({ token: null }),
+  };
 
   beforeEach(async () => {
     health.check.mockClear();
-    subscription.resume.mockClear();
+    run.restore.mockClear();
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(appRoutes),
         { provide: HealthStore, useValue: health },
-        { provide: SubscriptionStore, useValue: subscription },
+        { provide: RunStore, useValue: run },
       ],
-    }).compileComponents();
+    })
+      .overrideComponent(App, {
+        remove: { imports: [ErrorToaster] },
+        add: { imports: [ErrorToasterStub] },
+      })
+      .compileComponents();
   });
 
-  it('checks api health and resumes a saved job on init', async () => {
+  it('checks api health and restores the saved run on init', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     expect(health.check).toHaveBeenCalledOnce();
-    expect(subscription.resume).toHaveBeenCalledOnce();
+    expect(run.restore).toHaveBeenCalledOnce();
   });
 
   it('should render a router outlet', async () => {
@@ -39,12 +54,17 @@ describe('App', () => {
 });
 
 describe('appRoutes', () => {
-  it('routes the empty path to SkyViewer', async () => {
+  it('routes the empty path to Welcome', async () => {
     const [route] = appRoutes;
     expect(route.path).toBe('');
-    const loadComponent = route.loadComponent as () => Promise<
-      typeof SkyViewer
-    >;
-    await expect(loadComponent()).resolves.toBe(SkyViewer);
+    const loadComponent = route.loadComponent as () => Promise<typeof Welcome>;
+    await expect(loadComponent()).resolves.toBe(Welcome);
+  });
+
+  it('sends unknown urls to the welcome page', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter(appRoutes)] });
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/nope');
+    expect(router.url).toBe('/');
   });
 });

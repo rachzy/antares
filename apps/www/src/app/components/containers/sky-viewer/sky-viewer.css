@@ -1,0 +1,55 @@
+:host {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Aladin renders its own controls into the DOM after init, outside Angular's
+   template, so its widgets can only be reached by piercing view encapsulation. */
+:host ::ng-deep .aladin-container {
+  font-family: var(--font-sans);
+}
+
+:host ::ng-deep .aladin-container[data-theme='dark'] {
+  --bg-color: var(--card);
+  --text-color: var(--foreground);
+  --border-color: var(--border);
+  --hover-color: var(--primary);
+  --toggle-color: var(--primary);
+  --valid-color: var(--primary);
+  --aladin-color: var(--primary);
+  --aladin-color-border: var(--background);
+  --border-size: 1px;
+}
+
+:host ::ng-deep .aladin-box,
+:host ::ng-deep .aladin-stack-box,
+:host ::ng-deep .aladin-cat-browser-box,
+:host ::ng-deep .aladin-context-menu {
+  background: color-mix(in oklch, var(--card) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-radius: 0.75rem;
+}
+
+:host ::ng-deep .aladin-btn,
+:host ::ng-deep .aladin-button,
+:host ::ng-deep .aladin-indicatorBtn {
+  border-radius: 0.5rem;
+}
+
+:host ::ng-deep .aladin-fov,
+:host ::ng-deep .aladin-location,
+:host ::ng-deep .aladin-monospace-text {
+  font-family: var(--font-mono);
+}
+
+:host ::ng-deep .aladin-logo-container {
+  opacity: 0.6;
+}
+
+:host ::ng-deep .aladin-reticle {
+  filter: drop-shadow(
+    0 0 4px color-mix(in oklch, var(--primary) 55%, transparent)
+  );
+}

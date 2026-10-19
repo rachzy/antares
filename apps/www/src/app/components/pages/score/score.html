@@ -1,0 +1,80 @@
+@let score = run.score();
+@if (score.status !== 'idle') {
+  <div class="flex h-32 shrink-0 flex-col">
+    @if (score.cached) {
+      <an-job-log status="done" note="loaded from cache" />
+    } @else {
+      <an-job-log
+        [events]="score.events"
+        [status]="score.status"
+        [done]="done()"
+      />
+    }
+  </div>
+}
+
+@switch (score.status) {
+  @case ('idle') {
+    <div class="flex flex-1 flex-col items-center justify-center gap-3">
+      <p class="text-muted-foreground text-sm">
+        These candidates have not been scored yet.
+      </p>
+      <button
+        hlmBtn
+        type="button"
+        [disabled]="run.extract().status !== 'done'"
+        (click)="run.startScore()"
+      >
+        Score candidates
+      </button>
+    </div>
+  }
+  @case ('failed') {
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <p class="text-destructive mr-auto text-sm">Scoring failed</p>
+      <button hlmBtn variant="outline" type="button" (click)="run.retry()">
+        Retry
+      </button>
+    </div>
+  }
+  @case ('done') {
+    @if (rows().length === 0) {
+      <p class="text-muted-foreground text-sm">No candidates scored</p>
+    } @else {
+      <div hlmTabs tab="ranking" class="min-h-0 w-full flex-1">
+        <div class="flex items-center justify-between gap-2">
+          <div hlmTabsList class="h-auto">
+            <button hlmTabsTrigger="ranking" class="px-3.5 py-1.5">
+              Ranking
+            </button>
+            <button hlmTabsTrigger="matrix" class="px-3.5 py-1.5">
+              Model matrix
+            </button>
+            <button hlmTabsTrigger="details" class="px-3.5 py-1.5">
+              Scoring details
+            </button>
+          </div>
+          <button
+            hlmBtn
+            variant="secondary"
+            type="button"
+            (click)="run.startScore()"
+          >
+            Re-run scoring
+          </button>
+        </div>
+        <div class="bg-card min-h-0 flex-1 overflow-auto rounded-[10px] p-3.5">
+          <div hlmTabsContent="ranking">
+            <an-score-ranking [rows]="rows()" />
+          </div>
+          <div hlmTabsContent="matrix">
+            <an-score-matrix [rows]="rows()" />
+          </div>
+          <div hlmTabsContent="details">
+            <an-score-details [rows]="rows()" [result]="score.result!" />
+          </div>
+        </div>
+      </div>
+    }
+  }
+}

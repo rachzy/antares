@@ -1,0 +1,26 @@
+<div
+  #box
+  data-log
+  role="log"
+  aria-live="polite"
+  class="border-border min-h-0 flex-1 overflow-y-auto rounded-[10px] border bg-black p-3 font-mono text-[12.5px] leading-relaxed text-foreground/85"
+>
+  @if (note(); as note) {
+    <div data-line class="text-muted-foreground">{{ note }}</div>
+  }
+  @for (line of lines(); track line.seq) {
+    <div data-line [class.text-destructive]="line.error">
+      <span class="text-muted-foreground">{{ line.time }}</span>
+      {{ line.text }}
+    </div>
+  }
+  @if (finish(); as finish) {
+    <div data-line data-done class="text-primary">{{ finish }}</div>
+  }
+  @if (status() === 'running') {
+    <span
+      class="bg-muted-foreground inline-block h-3.5 w-2 animate-pulse align-middle"
+      aria-hidden="true"
+    ></span>
+  }
+</div>
