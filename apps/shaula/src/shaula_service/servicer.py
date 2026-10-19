@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import queue
+import sys
 import threading
+from collections.abc import Callable
 
 import grpc
 from antares.shaula.v1 import shaula_pb2, shaula_pb2_grpc
@@ -17,6 +19,62 @@ SERVICE_VERSION = "0.0.1a0"
 
 class _Cancelled(Exception):
     """Raised from the progress callback to stop an extraction nobody is reading."""
+
+
+class _StdoutRouter:
+    """Tees the library's print() output, per thread, to a line callback.
+
+    The library narrates most of its work on stdout and emits a ProgressEvent only
+    at stage boundaries, so forwarding events alone drops nearly every console line.
+    """
+
+    _lock = threading.Lock()
+    _users = 0
+    _original = None
+    _local = threading.local()
+
+    def __init__(self, original) -> None:
+        self._wrapped = original
+
+    def write(self, text: str) -> int:
+        sink = getattr(self._local, "sink", None)
+        if sink is not None:
+            sink(text)
+        return self._wrapped.write(text)
+
+    def __getattr__(self, name: str):
+        return getattr(self._wrapped, name)
+
+    @classmethod
+    def attach(cls, on_line: Callable[[str], None]) -> Callable[[], None]:
+        """Route this thread's stdout lines to on_line; the returned function detaches."""
+        buffer = ""
+
+        def sink(text: str) -> None:
+            nonlocal buffer
+            buffer += text
+            *lines, buffer = buffer.split("\n")
+            for line in lines:
+                if line.strip():
+                    on_line(line.rstrip())
+
+        with cls._lock:
+            if cls._users == 0:
+                cls._original = sys.stdout
+                sys.stdout = cls(sys.stdout)
+            cls._users += 1
+        cls._local.sink = sink
+
+        def detach() -> None:
+            cls._local.sink = None
+            with cls._lock:
+                cls._users -= 1
+                if cls._users == 0:
+                    sys.stdout = cls._original
+            if buffer.strip():
+                on_line(buffer.rstrip())
+
+        return detach
 
 
 def _status_for(error: Exception) -> tuple[grpc.StatusCode, str]:
@@ -64,13 +122,22 @@ class ShaulaServicer(shaula_pb2_grpc.ShaulaServicer):
         outcome: dict[str, object] = {}
         cancelled = threading.Event()
         context.add_callback(cancelled.set)
+        stage = "downloading"
 
         def on_progress(event: ProgressEvent) -> None:
+            nonlocal stage
             if cancelled.is_set():
                 raise _Cancelled
+            stage = event.stage
             events.put(event)
 
+        def on_line(line: str) -> None:
+            if cancelled.is_set():
+                raise _Cancelled
+            events.put(ProgressEvent(stage=stage, message=line))
+
         def run() -> None:
+            detach = _StdoutRouter.attach(on_line)
             try:
                 outcome["result"] = extract(
                     request.target,
@@ -86,6 +153,10 @@ class ShaulaServicer(shaula_pb2_grpc.ShaulaServicer):
             except Exception as error:  # noqa: BLE001 - surfaced to the client below
                 outcome["error"] = error
             finally:
+                try:
+                    detach()
+                except _Cancelled:
+                    pass
                 events.put(None)
 
         worker = threading.Thread(target=run, daemon=True)

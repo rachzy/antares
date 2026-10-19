@@ -276,6 +276,37 @@ def test_streams_progress_then_exactly_one_result(monkeypatch):
     assert from_struct(results[0].result.features[0])["MES"] == pytest.approx(12.0)
 
 
+def test_console_output_from_the_library_is_streamed_as_progress(monkeypatch):
+    """The library reports most of its work with print(), not ProgressEvent."""
+
+    def extract(target, mission, *, progress=None, **kwargs):
+        progress(ProgressEvent(stage="detrending", message="Detrending"))
+        print("Starting BLS detrending and period search...")
+        print("\n=== Transit search iteration 1 ===\nBLS input: 100 valid points")
+        return ExtractionResult(
+            target=target, mission=mission, features=[], shaula_version="0.0.1a0"
+        )
+
+    monkeypatch.setattr(servicer_module, "extract", extract)
+
+    request = shaula_pb2.ExtractFeaturesRequest(target="Kepler-11", mission="Kepler")
+    emitted = list(ShaulaServicer().ExtractFeatures(request, _Context()))
+    progress = [e.progress for e in emitted if e.WhichOneof("event") == "progress"]
+
+    assert [p.message for p in progress] == [
+        "Detrending",
+        "Starting BLS detrending and period search...",
+        "=== Transit search iteration 1 ===",
+        "BLS input: 100 valid points",
+    ]
+    assert {p.stage for p in progress} == {"detrending"}
+
+
+def test_console_output_outside_an_extraction_is_untouched(capsys):
+    print("hello")
+    assert capsys.readouterr().out == "hello\n"
+
+
 def test_fraction_is_flagged_rather_than_defaulted(monkeypatch):
     """A missing fraction must be distinguishable from a fraction of 0.0."""
     monkeypatch.setattr(
