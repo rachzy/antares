@@ -245,9 +245,9 @@ describe('Select', () => {
     const { el, button } = await hit();
     expect(el.querySelector('h2')?.textContent).toContain('Kepler-1 b');
     expect(el.textContent).toContain('KIC 11446443');
-    const link = button('View on Stellar Catalog') as HTMLAnchorElement;
+    const link = button('View on SIMBAD') as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe(
-      'https://www.stellarcatalog.com/stars/Kepler-1%20b',
+      'https://simbad.cds.unistra.fr/simbad/sim-id?Ident=KIC%2011446443',
     );
     expect(link.target).toBe('_blank');
     expect(link.rel).toContain('noopener');

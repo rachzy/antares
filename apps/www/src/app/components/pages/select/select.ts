@@ -19,6 +19,7 @@ import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
+import { simbadUrl } from './simbad-url';
 
 // The API matches within 4 arcsec; 0.05 deg (180 arcsec) across the view keeps the ring a few arcsec wide.
 export const MAX_CONFIRM_FOV_DEG = 0.05;
@@ -59,10 +60,10 @@ export class Select {
       !this.targets.loading() &&
       !this.sky()?.loadError(),
   );
-  protected readonly catalogUrl = computed(
-    () =>
-      `https://www.stellarcatalog.com/stars/${encodeURIComponent(this.star()?.display_name ?? '')}`,
-  );
+  protected readonly catalogUrl = computed(() => {
+    const star = this.star();
+    return star ? simbadUrl(star) : '';
+  });
 
   constructor() {
     effect(() => {
