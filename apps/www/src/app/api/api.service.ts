@@ -15,6 +15,7 @@ import type {
   Run,
   SubscriptionEvent,
   SubscriptionView,
+  StarInfo,
   Target,
 } from './api.types';
 
@@ -65,6 +66,10 @@ export class ApiService {
     return this.post<Target>(API_ROUTES.resolveTarget, body);
   }
 
+  starInfo(query: string): Observable<StarInfo> {
+    return this.get<StarInfo>(API_ROUTES.starInfo, { query });
+  }
+
   listRuns(): Observable<Run[]> {
     return this.get<Run[]>(API_ROUTES.listRuns);
   }
@@ -109,9 +114,9 @@ export class ApiService {
     });
   }
 
-  private get<T>(path: string): Observable<T> {
+  private get<T>(path: string, params?: Record<string, string>): Observable<T> {
     return this.http
-      .get<T>(this.base + path)
+      .get<T>(this.base + path, { params })
       .pipe(catchError((e) => throwError(() => toApiError(e))));
   }
 
