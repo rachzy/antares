@@ -19,6 +19,7 @@ import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
+import { simbadUrl } from './simbad-url';
 
 // The API matches within 4 arcsec; 0.05 deg (180 arcsec) across the view keeps the ring a few arcsec wide.
 export const MAX_CONFIRM_FOV_DEG = 0.05;
@@ -61,10 +62,7 @@ export class Select {
   );
   protected readonly catalogUrl = computed(() => {
     const star = this.star();
-    if (!star) return '';
-    const designation =
-      star.designation || `${star.catalog} ${star.catalog_id}`;
-    return `https://simbad.cds.unistra.fr/simbad/sim-id?Ident=${encodeURIComponent(designation)}`;
+    return star ? simbadUrl(star) : '';
   });
 
   constructor() {
