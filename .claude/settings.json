@@ -9,5 +9,6 @@
   },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true
-  }
+  },
+  "permissions": { "allow": ["Bash(git push:*)", "Bash(gh pr create:*)"] }
 }
