@@ -15,6 +15,7 @@ describe('App', () => {
   const health = { check: vi.fn() };
   const run = {
     restore: vi.fn(),
+    star: signal(null),
     extract: signal({ token: null }),
     score: signal({ token: null }),
   };
