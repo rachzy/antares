@@ -59,10 +59,13 @@ export class Select {
       !this.targets.loading() &&
       !this.sky()?.loadError(),
   );
-  protected readonly catalogUrl = computed(
-    () =>
-      `https://www.stellarcatalog.com/stars/${encodeURIComponent(this.star()?.display_name ?? '')}`,
-  );
+  protected readonly catalogUrl = computed(() => {
+    const star = this.star();
+    if (!star) return '';
+    const designation =
+      star.designation || `${star.catalog} ${star.catalog_id}`;
+    return `https://simbad.cds.unistra.fr/simbad/sim-id?Ident=${encodeURIComponent(designation)}`;
+  });
 
   constructor() {
     effect(() => {
