@@ -166,6 +166,20 @@ describe('Score', () => {
     expect(button('Score candidates')).toBeUndefined();
   });
 
+  it('lets the log fill the height unless the results tabs are shown', async () => {
+    score.set({ ...idle, status: 'running', events: [ev] });
+    const running = await mount();
+    const wrapper = (el: HTMLElement) =>
+      el.querySelector('[data-log]')?.parentElement?.parentElement;
+    expect(wrapper(running.el)?.classList).toContain('flex-1');
+    expect(wrapper(running.el)?.classList).not.toContain('h-32');
+
+    done([row(0.4)]);
+    const finished = await mount();
+    expect(wrapper(finished.el)?.classList).toContain('h-32');
+    expect(wrapper(finished.el)?.classList).not.toContain('flex-1');
+  });
+
   it('says No candidates scored with zero predictions', async () => {
     done([]);
     const { el } = await mount();
