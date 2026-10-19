@@ -171,6 +171,18 @@ describe('RunStore', () => {
     expect(store.extract().status).toBe('running');
   });
 
+  it('startExtract sends download_all and keeps it for the score run', () => {
+    const store = setup();
+    store.confirm(star);
+    store.startExtract(true);
+    expect(extract).toHaveBeenLastCalledWith({ ...body, download_all: true });
+    runJob('e', features);
+    store.startScore();
+    expect(analyze).toHaveBeenLastCalledWith({ ...body, download_all: true });
+    store.startExtract();
+    expect(extract).toHaveBeenLastCalledWith(body);
+  });
+
   it('maps EPIC to K2, TIC to TESS and drops unknown catalogs', () => {
     const store = setup();
     store.confirm({ ...star, catalog: 'EPIC' });
@@ -314,6 +326,7 @@ describe('RunStore', () => {
       extractToken: 'e',
       scoreToken: 's',
       extractCached: false,
+      downloadAll: false,
     });
   });
 

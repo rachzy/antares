@@ -16,6 +16,14 @@
       >View on SIMBAD</a
     >
     <div class="flex-1"></div>
+    <label for="download-all" class="flex items-center gap-2 text-sm">
+      <hlm-checkbox
+        inputId="download-all"
+        [checked]="downloadAll()"
+        (checkedChange)="downloadAll.set($event)"
+      />
+      Download all data points
+    </label>
     <button hlmBtn type="button" (click)="extract()">
       Extract lightcurve features
     </button>
