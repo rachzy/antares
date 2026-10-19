@@ -1,6 +1,7 @@
 export const API_ROUTES = {
   health: '/healthz',
   resolveTarget: '/targets/resolve',
+  starInfo: '/targets/info',
   listRuns: '/ml/runs',
   predict: '/ml/predict',
   extract: '/pipeline/extract',

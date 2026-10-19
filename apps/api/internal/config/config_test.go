@@ -31,6 +31,7 @@ func TestDefaults(t *testing.T) {
 		"retention": {cfg.TokenRetention, 7 * 24 * time.Hour},
 		"tess":      {cfg.TESSTTL, 30 * 24 * time.Hour},
 		"coalesce":  {cfg.CoalesceInterval, 100 * time.Millisecond},
+		"catalog":   {cfg.CatalogTTL, 24 * time.Hour},
 	}
 	for name, pair := range want {
 		if pair[0] != pair[1] {

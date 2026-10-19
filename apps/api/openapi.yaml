@@ -148,6 +148,56 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
+  /targets/info:
+    get:
+      tags: [targets]
+      operationId: targetInfo
+      summary: Catalogue details of a star, by name or position
+      description: |
+        Send either `query`, or both `ra_deg` and `dec_deg`, never both. Resolves the star, then
+        looks it up in SIMBAD (aliases, spectral type, distance, magnitude) and the NASA Exoplanet
+        Archive (stellar parameters and known planets). Either service can be missing from
+        `star.sources`; a star neither knows has empty details. Answers are cached in memory for
+        `ANTARES_CATALOG_TTL`. If both services are down the answer is `503`.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Query'
+        - name: mission
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Mission'
+        - name: ra_deg
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RA'
+        - name: dec_deg
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Dec'
+      responses:
+        '200':
+          description: The star and its catalogue details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarInfo'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
   /ml/runs:
     get:
       tags: [ml]
@@ -770,6 +820,65 @@ components:
           format: int64
           minimum: 0
           description: The `seq` of the latest event; pass it as `since` when opening the stream.
+
+    StarInfo:
+      type: object
+      description: A resolved star with what the public catalogues say about it.
+      required: [target, star]
+      properties:
+        target:
+          $ref: '#/components/schemas/Target'
+        star:
+          type: object
+          required: [aliases, planets, sources]
+          properties:
+            aliases:
+              type: array
+              items:
+                type: string
+              description: Other designations worth showing, such as `Kepler-90` or `HD 175692`.
+            spectral_type:
+              type: string
+              example: G0V
+            object_type:
+              type: string
+              description: SIMBAD's short object type, `*` for a star.
+            distance_ly:
+              type: number
+              description: Light years, from the SIMBAD parallax or the archive's distance.
+            teff_k:
+              type: number
+              description: Effective temperature in kelvin.
+            radius_solar:
+              type: number
+            mass_solar:
+              type: number
+            magnitude:
+              type: number
+            magnitude_band:
+              type: string
+              enum: [G, V, Kepler]
+            planets:
+              type: array
+              description: Confirmed planets and Kepler candidates, shortest period first.
+              items:
+                type: object
+                required: [name, confirmation]
+                properties:
+                  name:
+                    type: string
+                  period_days:
+                    type: number
+                  radius_earth:
+                    type: number
+                  confirmation:
+                    type: string
+                    enum: [confirmed, candidate]
+            sources:
+              type: array
+              items:
+                type: string
+              description: The services that answered, from `SIMBAD` and `NASA Exoplanet Archive`.
 
     FeaturesView:
       type: object

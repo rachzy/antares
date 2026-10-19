@@ -43,6 +43,11 @@ type Config struct {
 	ConnBuffer int
 	// CoalesceInterval is how long the WebSocket stream gathers events into one frame.
 	CoalesceInterval time.Duration
+	// SimbadURL and NASAURL are the TAP endpoints queried for star details.
+	SimbadURL string
+	NASAURL   string
+	// CatalogTTL is how long star details are served from memory before the services are asked again.
+	CatalogTTL time.Duration
 	// AllowedOrigins are the browser origins allowed for CORS and WebSocket upgrades; empty allows
 	// no cross-origin access.
 	AllowedOrigins []string
@@ -100,6 +105,9 @@ func Load(getenv func(string) string) (Config, error) {
 		RingSize:         number("ANTARES_RING_SIZE", 500),
 		ConnBuffer:       number("ANTARES_CONN_BUFFER", 64),
 		CoalesceInterval: duration("ANTARES_COALESCE_INTERVAL", 100*time.Millisecond),
+		SimbadURL:        text("ANTARES_SIMBAD_URL", "https://simbad.cds.unistra.fr/simbad/sim-tap/sync"),
+		NASAURL:          text("ANTARES_NASA_URL", "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"),
+		CatalogTTL:       duration("ANTARES_CATALOG_TTL", 24*time.Hour),
 	}
 
 	for _, origin := range strings.Split(getenv("ANTARES_ALLOWED_ORIGINS"), ",") {
@@ -123,6 +131,7 @@ func Load(getenv func(string) string) (Config, error) {
 	positive("ANTARES_TOKEN_RETENTION", cfg.TokenRetention > 0)
 	positive("ANTARES_TESS_TTL", cfg.TESSTTL > 0)
 	positive("ANTARES_COALESCE_INTERVAL", cfg.CoalesceInterval > 0)
+	positive("ANTARES_CATALOG_TTL", cfg.CatalogTTL > 0)
 
 	return cfg, errors.Join(errs...)
 }

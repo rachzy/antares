@@ -32,6 +32,32 @@ export interface Target {
   dec_deg: number;
 }
 
+export interface Planet {
+  name: string;
+  period_days?: number;
+  radius_earth?: number;
+  confirmation: 'confirmed' | 'candidate';
+}
+
+export interface StarDetails {
+  aliases: string[];
+  spectral_type?: string;
+  object_type?: string;
+  distance_ly?: number;
+  teff_k?: number;
+  radius_solar?: number;
+  mass_solar?: number;
+  magnitude?: number;
+  magnitude_band?: 'G' | 'V' | 'Kepler';
+  planets: Planet[];
+  sources: string[];
+}
+
+export interface StarInfo {
+  target: Target;
+  star: StarDetails;
+}
+
 export interface ExtractRequest {
   query?: string;
   ra_deg?: number;

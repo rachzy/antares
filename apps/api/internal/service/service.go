@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"antares/api/internal/cache"
+	"antares/api/internal/catalog"
 	"antares/api/internal/config"
 	"antares/api/internal/hub"
 	"antares/api/internal/jobs"
@@ -77,9 +78,11 @@ type Service struct {
 	Sched       *jobs.Scheduler
 	Shaula      upstream.Shaula
 	Fang        upstream.Fang
-	Clock       func() time.Time
-	Cfg         config.Config
-	Log         *slog.Logger
+	// Catalog supplies star details; nil disables GET /targets/info.
+	Catalog catalog.Source
+	Clock   func() time.Time
+	Cfg     config.Config
+	Log     *slog.Logger
 	// VersionTimeout bounds each upstream Version call separately when positive.
 	VersionTimeout time.Duration
 

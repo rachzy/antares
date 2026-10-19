@@ -1,11 +1,12 @@
-import { computed, signal } from '@angular/core';
+import { ApplicationRef, computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
 import { toast } from '@spartan-ng/brain/sonner';
 import { ApiRequestError } from '../../../api/api.service';
-import type { Target } from '../../../api/api.types';
+import type { StarDetails, Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
+import { StarInfoStore } from '../../../stores/star-info.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
 import { MAX_CONFIRM_FOV_DEG, Select } from './select';
@@ -51,6 +52,9 @@ describe('Select', () => {
   const resolveByPosition = vi.fn();
   const confirmed = signal<Target | null>(null);
   const confirm = vi.fn((t: Target) => confirmed.set(t));
+  const loadInfo = vi.fn();
+  const resetInfo = vi.fn();
+  const details = signal<StarDetails | null>(null);
   const startExtract = vi.fn();
   const extractStatus = signal('idle');
   const scoreStatus = signal('idle');
@@ -66,6 +70,9 @@ describe('Select', () => {
     resolveByPosition.mockReset();
     confirm.mockClear();
     startExtract.mockReset();
+    loadInfo.mockReset();
+    resetInfo.mockReset();
+    details.set(null);
     extractStatus.set('idle');
     scoreStatus.set('idle');
     vi.mocked(toast.error).mockClear();
@@ -79,6 +86,16 @@ describe('Select', () => {
         {
           provide: TargetStore,
           useValue: { target, loading, error, resolveByPosition },
+        },
+        {
+          provide: StarInfoStore,
+          useValue: {
+            details,
+            loading: signal(false),
+            failed: signal(false),
+            load: loadInfo,
+            reset: resetInfo,
+          },
         },
         {
           provide: RunStore,
@@ -254,6 +271,25 @@ describe('Select', () => {
     expect(button('Extract lightcurve features')).toBeTruthy();
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(confirm).toHaveBeenCalledWith(star);
+  });
+
+  it('loads the details of the confirmed star and shows them in the card', async () => {
+    const { el } = await hit();
+    expect(loadInfo).toHaveBeenCalledWith(star);
+    details.set({
+      aliases: ['Kepler-1'],
+      spectral_type: 'G0V',
+      planets: [],
+      sources: ['SIMBAD'],
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(el.querySelector('an-star-details')?.textContent).toContain('G0V');
+  });
+
+  it('clears the details while no star is confirmed', async () => {
+    await mount();
+    expect(resetInfo).toHaveBeenCalled();
+    expect(loadInfo).not.toHaveBeenCalled();
   });
 
   it('ignores a target resolved before Confirm was clicked', async () => {

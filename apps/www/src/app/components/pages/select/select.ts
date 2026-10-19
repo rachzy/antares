@@ -18,8 +18,10 @@ import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
+import { StarInfoStore } from '../../../stores/star-info.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
+import { StarDetailsView } from '../../containers/star-details/star-details';
 import { simbadUrl } from './simbad-url';
 
 // The API matches within 4 arcsec; 0.05 deg (180 arcsec) across the view keeps the ring a few arcsec wide.
@@ -29,6 +31,7 @@ export const MAX_CONFIRM_FOV_DEG = 0.05;
   selector: 'an-select',
   imports: [
     SkyViewer,
+    StarDetailsView,
     FormsModule,
     NgIcon,
     HlmButtonImports,
@@ -43,6 +46,7 @@ export const MAX_CONFIRM_FOV_DEG = 0.05;
 export class Select {
   private readonly targets = inject(TargetStore);
   private readonly run = inject(RunStore);
+  protected readonly starInfo = inject(StarInfoStore);
   private readonly router = inject(Router);
   private readonly sky = viewChild(SkyViewer);
   private readonly awaiting = signal(false);
@@ -69,6 +73,12 @@ export class Select {
   });
 
   constructor() {
+    effect(() => {
+      const star = this.star();
+      untracked(() =>
+        star ? this.starInfo.load(star) : this.starInfo.reset(),
+      );
+    });
     effect(() => {
       const target = this.targets.target();
       const error = this.targets.error();

@@ -1,0 +1,90 @@
+@if (loading()) {
+  <p class="text-muted-foreground text-xs" role="status">
+    Loading star details…
+  </p>
+} @else if (failed()) {
+  <p class="text-muted-foreground text-xs">
+    Star details are unavailable right now.
+  </p>
+} @else if (details(); as d) {
+  @if (empty()) {
+    <p class="text-muted-foreground text-xs">
+      SIMBAD and the NASA Exoplanet Archive have nothing on this star.
+    </p>
+  } @else {
+    <div class="flex flex-wrap gap-1.5">
+      @for (chip of chips(); track chip) {
+        <span
+          class="text-muted-foreground rounded-full border px-2 py-0.5 font-mono text-xs"
+          >{{ chip }}</span
+        >
+      }
+      @if (confirmed() > 0) {
+        <span
+          class="rounded-full border border-green-700 px-2 py-0.5 font-mono text-xs text-green-700 dark:border-green-400 dark:text-green-400"
+          >{{ confirmed() }} confirmed
+          {{ confirmed() === 1 ? 'planet' : 'planets' }}</span
+        >
+      }
+      @if (candidates() > 0) {
+        <span
+          class="text-muted-foreground rounded-full border px-2 py-0.5 font-mono text-xs"
+          >{{ candidates() }}
+          {{ candidates() === 1 ? 'candidate' : 'candidates' }}</span
+        >
+      }
+    </div>
+    @if (facts().length) {
+      <div>
+        <h3
+          class="text-muted-foreground mb-1.5 text-xs font-semibold tracking-wider uppercase"
+        >
+          Star
+        </h3>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+          @for (fact of facts(); track fact[0]) {
+            <dt class="text-muted-foreground">{{ fact[0] }}</dt>
+            <dd class="text-right font-mono tabular-nums">{{ fact[1] }}</dd>
+          }
+        </dl>
+      </div>
+    }
+    @if (d.planets.length) {
+      <div>
+        <h3
+          class="text-muted-foreground mb-1.5 text-xs font-semibold tracking-wider uppercase"
+        >
+          Known planets
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full font-mono text-xs tabular-nums">
+            <thead class="text-muted-foreground">
+              <tr>
+                <th class="py-1 text-left font-medium">Name</th>
+                <th class="py-1 text-right font-medium">Period (d)</th>
+                <th class="py-1 text-right font-medium">Radius (R⊕)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of d.planets; track p.name) {
+                <tr class="border-t">
+                  <td class="py-1 text-left whitespace-nowrap">
+                    {{ p.name }}
+                    @if (p.confirmation === 'candidate') {
+                      <span class="text-muted-foreground">(candidate)</span>
+                    }
+                  </td>
+                  <td class="py-1 text-right">{{ period(p) }}</td>
+                  <td class="py-1 text-right">{{ radius(p) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+    <p class="text-muted-foreground text-xs">
+      Sources: {{ d.sources.join(', ') }}
+    </p>
+  }
+}

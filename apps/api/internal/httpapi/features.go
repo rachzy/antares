@@ -11,19 +11,9 @@ import (
 
 // latestFeatures answers with the newest cached features of the star a name or position identifies.
 func (a *API) latestFeatures(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	in := service.ResolveInput{Query: q.Get("query"), Mission: q.Get("mission")}
-	var err error
-	if in.RA, err = coordinate(q.Get("ra_deg"), "ra_deg"); err != nil {
+	in, err := resolveQuery(r)
+	if err != nil {
 		a.writeError(w, r, err)
-		return
-	}
-	if in.Dec, err = coordinate(q.Get("dec_deg"), "dec_deg"); err != nil {
-		a.writeError(w, r, err)
-		return
-	}
-	if (in.RA == nil) != (in.Dec == nil) {
-		a.writeError(w, r, badRequest("ra_deg and dec_deg must be sent together"))
 		return
 	}
 	view, err := a.be.LatestFeatures(r.Context(), in)
@@ -32,6 +22,38 @@ func (a *API) latestFeatures(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
+}
+
+// starInfo answers with the catalogue details of the star a name or position identifies.
+func (a *API) starInfo(w http.ResponseWriter, r *http.Request) {
+	in, err := resolveQuery(r)
+	if err != nil {
+		a.writeError(w, r, err)
+		return
+	}
+	view, err := a.be.StarInfo(r.Context(), in)
+	if err != nil {
+		a.writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+// resolveQuery reads the query, mission, ra_deg and dec_deg parameters that name a star.
+func resolveQuery(r *http.Request) (service.ResolveInput, error) {
+	q := r.URL.Query()
+	in := service.ResolveInput{Query: q.Get("query"), Mission: q.Get("mission")}
+	var err error
+	if in.RA, err = coordinate(q.Get("ra_deg"), "ra_deg"); err != nil {
+		return in, err
+	}
+	if in.Dec, err = coordinate(q.Get("dec_deg"), "dec_deg"); err != nil {
+		return in, err
+	}
+	if (in.RA == nil) != (in.Dec == nil) {
+		return in, badRequest("ra_deg and dec_deg must be sent together")
+	}
+	return in, nil
 }
 
 // subscriptionFeatures answers with the newest cached features of a job's star. A malformed token
