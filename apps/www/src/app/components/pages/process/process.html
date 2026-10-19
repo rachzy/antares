@@ -7,6 +7,9 @@
     [done]="done()"
   />
 }
+@if (run.processDone() && features().length) {
+  <an-features-preview [rows]="features()" />
+}
 <div class="flex flex-wrap items-center justify-end gap-2 pr-3">
   @if (run.extract().status === 'failed') {
     <button hlmBtn variant="outline" type="button" (click)="run.retry()">

@@ -201,4 +201,23 @@ describe('Process', () => {
     button('Retry')?.click();
     expect(retry).toHaveBeenCalledOnce();
   });
+
+  it('previews the extracted rows below the log once done', async () => {
+    done([
+      { a: 1, b: 'x' },
+      { a: 2, b: 'y' },
+    ]);
+    const { el } = await mount();
+    const preview = el.querySelector('an-features-preview');
+    expect(preview).not.toBeNull();
+    expect(preview?.querySelectorAll('tbody tr').length).toBe(2);
+    expect(preview?.querySelector('thead')?.textContent).toContain('b');
+  });
+
+  it('shows no preview while running or with no candidates', async () => {
+    extract.set({ ...idle, status: 'running' });
+    expect((await mount()).el.querySelector('an-features-preview')).toBeNull();
+    done([]);
+    expect((await mount()).el.querySelector('an-features-preview')).toBeNull();
+  });
 });

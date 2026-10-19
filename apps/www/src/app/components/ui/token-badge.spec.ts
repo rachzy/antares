@@ -34,6 +34,22 @@ describe('TokenBadge', () => {
     expect(box.title).toBe('qRx6ZbxbLsNhepHlSSNUrCjyWtRjFs-YAWnNJnsqfEY');
   });
 
+  it('copies the full token from the copy button', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    extract.set({ token: 'qRx6ZbxbLsNhepHlSSNUrCjyWtRjFs-YAWnNJnsqfEY' });
+    const el = await mount();
+    const button = el.querySelector<HTMLButtonElement>(
+      'an-copy-button button',
+    )!;
+    expect(button.getAttribute('aria-label')).toBe('Copy token');
+    button.click();
+    expect(writeText).toHaveBeenCalledWith(
+      'qRx6ZbxbLsNhepHlSSNUrCjyWtRjFs-YAWnNJnsqfEY',
+    );
+    vi.unstubAllGlobals();
+  });
+
   it('prefers the scoring token once scoring started', async () => {
     extract.set({ token: 'extract-token-aaaaaaaa' });
     score.set({ token: 'score-token-bbbbbbbbbb' });

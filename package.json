@@ -80,6 +80,7 @@
     "@angular/platform-browser": "~22.1.0",
     "@angular/router": "~22.1.0",
     "@ng-icons/core": ">=32.0.0 <34.0.0",
+    "@ng-icons/font-awesome": "^33.4.0",
     "@ng-icons/lucide": ">=32.0.0 <34.0.0",
     "@ngrx/signals": "^22.0.1",
     "@spartan-ng/brain": "^1.4.1",
