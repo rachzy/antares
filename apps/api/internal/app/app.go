@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"antares/api/internal/cache"
+	"antares/api/internal/catalog"
 	"antares/api/internal/config"
 	"antares/api/internal/httpapi"
 	"antares/api/internal/hub"
@@ -71,9 +72,12 @@ func New(ctx context.Context, cfg config.Config, db *sql.DB, shaula upstream.Sha
 		Hub:         rooms,
 		Shaula:      shaula,
 		Fang:        fang,
-		Clock:       clock,
-		Cfg:         cfg,
-		Log:         log,
+		Catalog: &catalog.Cached{
+			Source: catalog.NewClient(cfg.SimbadURL, cfg.NASAURL), TTL: cfg.CatalogTTL, Clock: clock,
+		},
+		Clock: clock,
+		Cfg:   cfg,
+		Log:   log,
 
 		VersionTimeout: versionTimeout,
 	}

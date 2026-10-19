@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"antares/api/internal/catalog"
 	"antares/api/internal/jobs"
 	"antares/api/internal/service"
 )
@@ -133,5 +134,41 @@ func TestLatestFeaturesByTokenMapsServiceErrors(t *testing.T) {
 	rec := do(h, "GET", "/subscription/"+newToken(t)+"/features", "")
 	if rec.Code != 500 || strings.Contains(rec.Body.String(), "db exploded") {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+}
+
+func TestStarInfoForwardsTheInputAndReturnsTheDetails(t *testing.T) {
+	var got service.ResolveInput
+	h := handler(t, &stub{starInfo: func(_ context.Context, in service.ResolveInput) (service.InfoView, error) {
+		got = in
+		return service.InfoView{
+			Target: jobs.TargetInfo{Catalog: "KIC", CatalogID: "11442793", DisplayName: "Kepler-90", Designation: "KIC 11442793"},
+			Star:   catalog.Star{Aliases: []string{"KOI-351"}, SpectralType: "G0V", Planets: []catalog.Planet{}, Sources: []string{"SIMBAD"}},
+		}, nil
+	}}, nil)
+
+	rec := do(h, "GET", "/targets/info?query=KIC%2011442793", "")
+	if rec.Code != 200 {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var body map[string]map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["target"]["designation"] != "KIC 11442793" || body["star"]["spectral_type"] != "G0V" {
+		t.Fatalf("body = %v", body)
+	}
+	if got.Query != "KIC 11442793" {
+		t.Fatalf("service input = %+v", got)
+	}
+}
+
+func TestStarInfoRejectsOneCoordinateAndReportsUnavailable(t *testing.T) {
+	h := handler(t, &stub{starInfo: func(context.Context, service.ResolveInput) (service.InfoView, error) {
+		return service.InfoView{}, &service.Error{Kind: service.KindUnavailable, Message: "star details are temporarily unavailable"}
+	}}, nil)
+	if rec := do(h, "GET", "/targets/info?ra_deg=10", ""); rec.Code != 400 {
+		t.Errorf("one coordinate: status %d", rec.Code)
+	}
+	if rec := do(h, "GET", "/targets/info?query=x", ""); rec.Code != 503 {
+		t.Errorf("unavailable: status %d", rec.Code)
 	}
 }

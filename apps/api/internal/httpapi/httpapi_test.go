@@ -31,8 +31,16 @@ type stub struct {
 
 	latestFeatures        func(context.Context, service.ResolveInput) (service.FeaturesView, error)
 	latestFeaturesByToken func(context.Context, string) (service.FeaturesView, error)
+	starInfo              func(context.Context, service.ResolveInput) (service.InfoView, error)
 
 	shaulaVersion, fangVersion string
+}
+
+func (s *stub) StarInfo(ctx context.Context, in service.ResolveInput) (service.InfoView, error) {
+	if s.starInfo == nil {
+		return service.InfoView{}, errUnexpected
+	}
+	return s.starInfo(ctx, in)
 }
 
 func (s *stub) Resolve(ctx context.Context, in service.ResolveInput) (store.Target, error) {

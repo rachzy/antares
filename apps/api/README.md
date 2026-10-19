@@ -37,6 +37,7 @@ Routes, bodies, limits and errors are specified in [`openapi.yaml`](openapi.yaml
 
 ## Behaviour worth knowing
 
+- `GET /targets/info` queries SIMBAD and the NASA Exoplanet Archive from the server (never from the browser) and caches each star for `ANTARES_CATALOG_TTL`. A service that is down only leaves its fields out; the answer is `503` when both are down. Lookups cover KIC and TIC stars fully; EPIC stars get SIMBAD details only.
 - Until a job is `running`, keep a WebSocket open or poll the snapshot: a waiting job with nobody connected or polling for longer than `ANTARES_PROMOTION_GRACE` is dropped.
 - Features are cached per star, extraction parameters and Shaula version; a new Shaula version supersedes (never deletes) older entries, and TESS entries expire after `ANTARES_TESS_TTL`. Predictions are cached per features and model run. A failed or stalled job writes nothing; features survive a later prediction failure.
 - On shutdown, queued jobs stay queued; the next start fails every unfinished job with `interrupted by an API restart; resubmit`. Tokens issued before the restart keep working and report that state.

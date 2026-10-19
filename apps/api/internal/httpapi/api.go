@@ -23,6 +23,7 @@ type Backend interface {
 	Watch(ctx context.Context, token string, since uint64) (*service.Watch, error)
 	Status(ctx context.Context, token string) (service.SubscriptionView, error)
 	LatestFeatures(ctx context.Context, in service.ResolveInput) (service.FeaturesView, error)
+	StarInfo(ctx context.Context, in service.ResolveInput) (service.InfoView, error)
 	LatestFeaturesByToken(ctx context.Context, token string) (service.FeaturesView, error)
 	Versions() (shaula, fang string)
 }
@@ -49,6 +50,7 @@ var routes = []route{
 	{Route{"GET", "/healthz"}, (*API).health},
 	{Route{"POST", "/targets/resolve"}, (*API).resolve},
 	{Route{"GET", "/targets/features"}, (*API).latestFeatures},
+	{Route{"GET", "/targets/info"}, (*API).starInfo},
 	{Route{"GET", "/ml/runs"}, (*API).runs},
 	{Route{"POST", "/ml/predict"}, (*API).predict},
 	{Route{"POST", "/pipeline/extract"}, (*API).extract},
