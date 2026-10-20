@@ -1,6 +1,5 @@
 .DEFAULT_GOAL := help
 
-NETWORK    ?= antares
 BIND       ?= 127.0.0.1
 WWW_PORT   ?= 8080
 SHAULA_PORT ?= 50051
@@ -8,8 +7,7 @@ FANG_PORT  ?= 50052
 API_PORT   ?= 8081
 
 .PHONY: help install setup proto dev dev-www dev-api dev-shaula dev-fang build lint lint-fix \
-	format format-check test ci docker-build up down restart ps logs clean \
-	up-www up-api up-shaula up-fang
+	format format-check test ci docker-build up up-dev build-up down restart ps logs clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -63,47 +61,30 @@ ci: ## Lint, format check, test and build
 docker-build: ## Build the www, api, shaula and fang images
 	npm run build:docker
 
-$(NETWORK)-network:
-	@docker network inspect $(NETWORK) >/dev/null 2>&1 || docker network create $(NETWORK) >/dev/null
+COMPOSE      = docker compose -f compose.yaml -f compose.$(ENV).yaml
+ENV         ?= prod
 
-up-www: $(NETWORK)-network
-	@docker rm -f antares-www >/dev/null 2>&1 || true
-	docker run -d --name antares-www --network $(NETWORK) --restart unless-stopped \
-		-p $(BIND):$(WWW_PORT):80 antares-www:local
+up: ## Start the production stack (images must be built; ENV=dev for the dev stack)
+	$(COMPOSE) up -d
 
-up-api: $(NETWORK)-network
-	@docker rm -f antares-api >/dev/null 2>&1 || true
-	docker run -d --name antares-api --network $(NETWORK) --restart unless-stopped \
-		-p $(BIND):$(API_PORT):8080 \
-		-e ANTARES_SHAULA_ADDR=antares-shaula:50051 -e ANTARES_FANG_ADDR=antares-fang:50052 \
-		-v antares-api-data:/var/lib/antares antares-api:local
+up-dev: ## Start the dev stack with every service port published
+	$(MAKE) up ENV=dev
 
-up-shaula: $(NETWORK)-network
-	@docker rm -f antares-shaula >/dev/null 2>&1 || true
-	docker run -d --name antares-shaula --network $(NETWORK) --restart unless-stopped \
-		-p $(BIND):$(SHAULA_PORT):50051 \
-		-v antares-shaula-cache:/var/cache/shaula/lightkurve antares-shaula:local
+build-up: ## Build the images and start the stack
+	$(COMPOSE) up -d --build
 
-up-fang: $(NETWORK)-network
-	@docker rm -f antares-fang >/dev/null 2>&1 || true
-	docker run -d --name antares-fang --network $(NETWORK) --restart unless-stopped \
-		-p $(BIND):$(FANG_PORT):50052 \
-		-v antares-fang-models:/var/lib/fang/models antares-fang:local
+down: ## Stop and remove the containers (volumes are kept)
+	-docker compose -f compose.yaml -f compose.prod.yaml down
+	-docker compose -f compose.yaml -f compose.dev.yaml down
 
-up: up-www up-api up-shaula up-fang ## Run all containers (images must be built)
+restart: ## Recreate all containers
+	$(COMPOSE) up -d --force-recreate
 
-down: ## Stop and remove all containers (volumes are kept)
-	-docker rm -f antares-www antares-api antares-shaula antares-fang
-
-restart: down up ## Recreate all containers
-
-ps: ## List running Antares containers
-	@docker ps --filter name=antares- --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+ps: ## List the running Antares containers
+	docker compose -f compose.yaml -f compose.$(ENV).yaml ps
 
 logs: ## Follow logs of all containers (Ctrl-C to stop)
-	@for c in antares-www antares-api antares-shaula antares-fang; do \
-		docker logs -f --tail 20 $$c 2>&1 | sed "s/^/[$$c] /" & \
-	done; wait
+	$(COMPOSE) logs -f --tail 20
 
 clean: ## Remove local build output and service data
 	rm -rf dist .nx/cache .data

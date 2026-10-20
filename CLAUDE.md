@@ -24,7 +24,7 @@ Nx monorepo (npm) with an Angular 22 zoneless app, `www`, in `apps/www`, and a G
 
 ## Commands
 
-`package.json` wraps the common flows (`npm run dev`, `dev:<app>`, `lint`, `lint:fix`, `format`, `format:check`, `test`, `ci`, `build:docker`, `setup`), and the `Makefile` adds shortcuts on top of them plus container management (`make help`, `make up`, `make down`, `make logs`). Local service data lives in the git-ignored `.data/`.
+`package.json` wraps the common flows (`npm run dev`, `dev:<app>`, `lint`, `lint:fix`, `format`, `format:check`, `test`, `ci`, `build:docker`, `setup`), and the `Makefile` adds shortcuts on top of them plus container management (`make help`, `make up`, `make down`, `make logs`). The container stack is `compose.yaml` plus `compose.dev.yaml` (all ports published) or `compose.prod.yaml` (only www and api published, restart policies); `make up` uses prod, `make up-dev` dev. Local service data lives in the git-ignored `.data/`.
 
 ## Conventions
 

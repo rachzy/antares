@@ -1,0 +1,17 @@
+# Production: only www and api are published; shaula and fang stay on the internal network.
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  shaula:
+    <<: *restart
+  fang:
+    <<: *restart
+  api:
+    <<: *restart
+    ports:
+      - "${BIND:-127.0.0.1}:${API_PORT:-8081}:8080"
+  www:
+    <<: *restart
+    ports:
+      - "${BIND:-127.0.0.1}:${WWW_PORT:-8080}:80"
