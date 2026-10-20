@@ -18,7 +18,13 @@ services:
       - antares-shaula-cache:/var/cache/shaula/lightkurve
     healthcheck:
       <<: *python-healthcheck
-      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 50051), 2)"]
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import socket; socket.create_connection(('127.0.0.1', 50051), 2)",
+        ]
 
   fang:
     image: antares-fang:local
@@ -31,7 +37,13 @@ services:
       - antares-fang-models:/var/lib/fang/models
     healthcheck:
       <<: *python-healthcheck
-      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 50052), 2)"]
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import socket; socket.create_connection(('127.0.0.1', 50052), 2)",
+        ]
 
   api:
     image: antares-api:local

@@ -2,13 +2,13 @@
 services:
   shaula:
     ports:
-      - "${BIND:-127.0.0.1}:${SHAULA_PORT:-50051}:50051"
+      - '${BIND:-127.0.0.1}:${SHAULA_PORT:-50051}:50051'
   fang:
     ports:
-      - "${BIND:-127.0.0.1}:${FANG_PORT:-50052}:50052"
+      - '${BIND:-127.0.0.1}:${FANG_PORT:-50052}:50052'
   api:
     ports:
-      - "${BIND:-127.0.0.1}:${API_PORT:-8081}:8080"
+      - '${BIND:-127.0.0.1}:${API_PORT:-8081}:8080'
   www:
     ports:
-      - "${BIND:-127.0.0.1}:${WWW_PORT:-8080}:80"
+      - '${BIND:-127.0.0.1}:${WWW_PORT:-8080}:80'

@@ -10,8 +10,8 @@ services:
   api:
     <<: *restart
     ports:
-      - "${BIND:-127.0.0.1}:${API_PORT:-8081}:8080"
+      - '${BIND:-127.0.0.1}:${API_PORT:-8081}:8080'
   www:
     <<: *restart
     ports:
-      - "${BIND:-127.0.0.1}:${WWW_PORT:-8080}:80"
+      - '${BIND:-127.0.0.1}:${WWW_PORT:-8080}:80'
