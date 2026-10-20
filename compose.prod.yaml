@@ -1,4 +1,3 @@
-# Production: an nginx reverse proxy is the only published service. It serves www at / and the API at /api/.
 x-restart: &restart
   restart: unless-stopped
 

@@ -1,5 +1,3 @@
-# Base stack: services, internal network and volumes. Layer compose.dev.yaml or compose.prod.yaml on top
-# (`make up` / `make up-dev` do this); the base alone publishes no ports.
 name: antares
 
 x-python-healthcheck: &python-healthcheck
