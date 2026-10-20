@@ -5,6 +5,7 @@ WWW_PORT   ?= 8080
 SHAULA_PORT ?= 50051
 FANG_PORT  ?= 50052
 API_PORT   ?= 8081
+PROXY_PORT ?= 80
 
 .PHONY: help install setup proto dev dev-www dev-api dev-shaula dev-fang build lint lint-fix \
 	format format-check test ci docker-build up up-dev build-up down restart ps logs clean
