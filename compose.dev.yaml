@@ -9,5 +9,7 @@ services:
     ports:
       - '${BIND:-127.0.0.1}:${API_PORT:-8081}:8080'
   www:
+    volumes:
+      - ./deploy/config.dev.js:/usr/share/nginx/html/config.js:ro
     ports:
       - '${BIND:-127.0.0.1}:${WWW_PORT:-8080}:80'
