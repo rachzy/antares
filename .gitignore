@@ -73,3 +73,4 @@ apps/api/.env
 
 # Playwright MCP output
 .playwright-mcp
+.env

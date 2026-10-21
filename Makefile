@@ -8,7 +8,7 @@ API_PORT   ?= 8081
 PROXY_PORT ?= 80
 
 .PHONY: help install setup proto dev dev-www dev-api dev-shaula dev-fang build lint lint-fix \
-	format format-check test ci docker-build up up-dev build-up down restart ps logs clean
+	format format-check test ci docker-build up up-dev build-up fang-models down restart ps logs clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -77,6 +77,13 @@ build-up: ## Build the images and start the stack
 down: ## Stop and remove the containers (volumes are kept)
 	-docker compose -f compose.yaml -f compose.prod.yaml down
 	-docker compose -f compose.yaml -f compose.dev.yaml down
+
+fang-models: ## Point Fang at a model bundle directory and restart it (MODELS=/abs/path)
+	@test -n "$(MODELS)" || { echo "usage: make fang-models MODELS=/absolute/path/to/bundle"; exit 1; }
+	@case "$(MODELS)" in /*) ;; *) echo "MODELS must be an absolute path"; exit 1;; esac
+	@test -d "$(MODELS)" || { echo "$(MODELS) is not a directory"; exit 1; }
+	@touch .env && sed -i '/^FANG_MODELS_DIR=/d' .env && echo "FANG_MODELS_DIR=$(MODELS)" >> .env
+	$(COMPOSE) up -d --no-deps fang
 
 restart: ## Recreate all containers
 	$(COMPOSE) up -d --force-recreate

@@ -6,6 +6,8 @@ services:
     <<: *restart
   fang:
     <<: *restart
+    volumes:
+      - ${FANG_MODELS_DIR:-antares-fang-models}:/var/lib/fang/models
   api:
     <<: *restart
     environment:
