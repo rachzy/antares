@@ -276,6 +276,8 @@ describe('Select', () => {
     document.querySelector<HTMLElement>('[role="option"]')!.click();
     await fixture.whenStable();
     expect(gotoObject).toHaveBeenCalledWith('Kepler-186', expect.any(Object));
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    await fixture.whenStable();
     expect(document.querySelector('[role="option"]')).toBeNull();
   });
 
