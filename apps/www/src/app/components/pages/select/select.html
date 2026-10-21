@@ -41,16 +41,37 @@
     class="absolute top-14 left-1/2 flex w-[min(22rem,calc(100%-1.5rem))] -translate-x-1/2 items-center gap-1.5 md:top-3"
     (submit)="$event.preventDefault(); search()"
   >
-    <input
-      hlmInput
-      type="search"
-      name="query"
-      aria-label="Search the sky by object name"
-      placeholder="Search a star or object, e.g. Kepler-186"
-      class="bg-card/90 backdrop-blur-sm"
-      [ngModel]="query()"
-      (ngModelChange)="query.set($event)"
-    />
+    <hlm-autocomplete
+      class="min-w-0 flex-1"
+      [search]="query()"
+      (searchChange)="query.set($event)"
+      (valueChange)="pick($event)"
+      [state]="suggestionsOpen() ? 'open' : 'closed'"
+      (stateChanged)="suggestionsOpen.set($event === 'open')"
+      [autoHighlight]="true"
+      (focusin)="openSuggestions($event)"
+      (click)="openSuggestions($event)"
+      (keydown.enter)="searchTyped()"
+    >
+      <hlm-autocomplete-input
+        class="bg-card/90 backdrop-blur-sm"
+        aria-label="Search the sky by object name"
+        placeholder="Search a star or object, e.g. Kepler-186"
+        [showSearch]="false"
+      />
+      <ng-template hlmAutocompletePortal>
+        <hlm-autocomplete-content>
+          <hlm-autocomplete-empty>No Kepler stars match</hlm-autocomplete-empty>
+          <div hlmAutocompleteList>
+            @for (name of suggestions(); track name) {
+              <hlm-autocomplete-item [value]="name">{{
+                name
+              }}</hlm-autocomplete-item>
+            }
+          </div>
+        </hlm-autocomplete-content>
+      </ng-template>
+    </hlm-autocomplete>
     <button
       hlmBtn
       size="icon"

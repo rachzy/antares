@@ -1,0 +1,15 @@
+{
+  "name": "@spartan-ng/helm/autocomplete",
+  "version": "0.0.1",
+  "peerDependencies": {
+    "@angular/core": "^22.1.0",
+    "@spartan-ng/brain": "^1.4.1",
+    "@spartan-ng/helm/utils": "0.0.1",
+    "@angular/cdk": "22.0.0",
+    "@ng-icons/core": ">=32.0.0 <34.0.0",
+    "@ng-icons/lucide": ">=32.0.0 <34.0.0",
+    "@spartan-ng/helm/input-group": "0.0.1"
+  },
+  "sideEffects": false,
+  "private": true
+}

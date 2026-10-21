@@ -60,6 +60,15 @@ describe('Select', () => {
   const scoreStatus = signal('idle');
 
   beforeEach(async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe = vi.fn();
+        unobserve = vi.fn();
+        disconnect = vi.fn();
+      },
+    );
     callbacks.clear();
     fov = 60;
     center = [291.03, 48.14];
@@ -221,7 +230,7 @@ describe('Select', () => {
   it('searches the sky by name', async () => {
     gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
     const { fixture, el } = await mount();
-    const input = el.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
     input.value = ' Kepler-186 ';
     input.dispatchEvent(new Event('input'));
     el.querySelector('form')!.dispatchEvent(new Event('submit'));
@@ -233,12 +242,43 @@ describe('Select', () => {
   it('toasts when the search finds nothing', async () => {
     gotoObject.mockImplementation((_q, cb) => cb.error());
     const { fixture, el } = await mount();
-    const input = el.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
     input.value = 'zzz';
     input.dispatchEvent(new Event('input'));
     el.querySelector('form')!.dispatchEvent(new Event('submit'));
     await fixture.whenStable();
     expect(toast.error).toHaveBeenCalledWith('No object named "zzz" found');
+  });
+
+  it('lists matching Kepler stars when the search is focused', async () => {
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    input.value = 'Kepler-18';
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    const options = [...document.querySelectorAll('[role="option"]')].map((o) =>
+      o.textContent?.trim(),
+    );
+    expect(options).toContain('Kepler-186');
+    expect(options).toContain('Kepler-1866');
+    expect(options).not.toContain('Kepler-118');
+  });
+
+  it('searches the sky when a suggestion is picked', async () => {
+    gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    input.value = 'Kepler-186';
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    document.querySelector<HTMLElement>('[role="option"]')!.click();
+    await fixture.whenStable();
+    expect(gotoObject).toHaveBeenCalledWith('Kepler-186', expect.any(Object));
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    await fixture.whenStable();
+    expect(document.querySelector('[role="option"]')).toBeNull();
   });
 
   it('ignores an empty search', async () => {
