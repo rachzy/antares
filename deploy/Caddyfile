@@ -1,0 +1,20 @@
+{$SITE_ADDRESS::80} {
+	handle_path /api/* {
+		reverse_proxy api:8080 {
+			flush_interval -1
+			transport http {
+				read_timeout 1h
+			}
+		}
+	}
+
+	handle /config.js {
+		header Cache-Control no-store
+		header Content-Type application/javascript
+		respond `window.ANTARES_CONFIG = { apiBaseUrl: '/api' };`
+	}
+
+	handle {
+		reverse_proxy www:80
+	}
+}
