@@ -2395,7 +2395,7 @@ wheels = [
 [[package]]
 name = "shaula"
 version = "0.0.1a0"
-source = { git = "https://github.com/rachzy/shaula?tag=v0.0.1-alpha#e2521d69d250949c6c605671dbedf76d7638a5d2" }
+source = { git = "https://github.com/rachzy/shaula?branch=main#a4fb110fd3b2b060195a0f562f54b0239bb0e38e" }
 dependencies = [
     { name = "astropy" },
     { name = "astroquery" },
@@ -2429,7 +2429,7 @@ dev = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.69" },
     { name = "protobuf", specifier = ">=5.29" },
-    { name = "shaula", git = "https://github.com/rachzy/shaula?tag=v0.0.1-alpha" },
+    { name = "shaula", git = "https://github.com/rachzy/shaula?branch=main" },
 ]
 
 [package.metadata.requires-dev]

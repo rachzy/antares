@@ -17,7 +17,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-shaula = { git = "https://github.com/rachzy/shaula", tag = "v0.0.1-alpha" }
+shaula = { git = "https://github.com/rachzy/shaula", branch = "main" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/shaula_service"]

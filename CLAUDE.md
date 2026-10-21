@@ -16,7 +16,7 @@ Nx monorepo (npm) with an Angular 22 zoneless app, `www`, in `apps/www`, and a G
 - `libs/proto` is the single source of truth for both service contracts. Run `npx nx run proto:generate` after editing a `.proto`. Generated code is not tracked.
 - The directory layout under `libs/proto` must mirror the protobuf package path, otherwise generated Python imports do not resolve. Generated stubs are imported as `antares.<service>.v1`, with `src/gen` on the path.
 - Python apps use uv, driven through Nx `nx:run-commands`. There is no Nx Python plugin: `npx nx test shaula`, `npx nx lint fang`, `npx nx serve shaula`.
-- Each Python app has its own lockfile and virtualenv, and installs its library from a pinned git tag. Bumping a library is a one-line change to `[tool.uv.sources]` plus `uv lock`.
+- Each Python app has its own lockfile and virtualenv, and installs its library from the `main` branch of its git repo; `uv.lock` pins the commit, and `make bump-deps` relocks both to the latest.
 - The service packages are `shaula_service` and `fang_service`; the libraries they wrap are `shaula` and `fang`. Do not let the wrapper shadow the library name.
 - Neither service holds job state, a queue or a cache. Those belong to `apps/api`.
 - Feature rows cross the wire as `google.protobuf.Struct` because the feature set is versioned by Fang's `schema.yaml`.

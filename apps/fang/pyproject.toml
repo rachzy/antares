@@ -17,7 +17,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-fang = { git = "https://github.com/rachzy/fang", tag = "v0.0.1-alpha" }
+fang = { git = "https://github.com/rachzy/fang", branch = "main" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fang_service"]
