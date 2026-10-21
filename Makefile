@@ -8,7 +8,7 @@ API_PORT   ?= 8081
 PROXY_PORT ?= 80
 
 .PHONY: help install setup proto dev dev-www dev-api dev-shaula dev-fang build lint lint-fix \
-	format format-check test ci docker-build up up-dev build-up fang-models down restart ps logs clean
+	format format-check test ci docker-build up up-dev build-up fang-models bump-deps down restart ps logs clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -84,6 +84,10 @@ fang-models: ## Point Fang at a model bundle directory and restart it (MODELS=/a
 	@test -d "$(MODELS)" || { echo "$(MODELS) is not a directory"; exit 1; }
 	@touch .env && sed -i '/^FANG_MODELS_DIR=/d' .env && echo "FANG_MODELS_DIR=$(MODELS)" >> .env
 	$(COMPOSE) up -d --no-deps fang
+
+bump-deps: ## Relock shaula and fang to the latest commit of their main branches
+	cd apps/shaula && uv lock --upgrade-package shaula
+	cd apps/fang && uv lock --upgrade-package fang
 
 restart: ## Recreate all containers
 	$(COMPOSE) up -d --force-recreate

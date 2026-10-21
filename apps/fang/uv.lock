@@ -239,7 +239,7 @@ wheels = [
 [[package]]
 name = "fang"
 version = "0.0.1a0"
-source = { git = "https://github.com/rachzy/fang?tag=v0.0.1-alpha#1b2f44d6e94dcd3617b52fb8791ba8f4e13419b0" }
+source = { git = "https://github.com/rachzy/fang?branch=main#346351cb5ea12b4291e1b1ef88163475d19ac2b5" }
 dependencies = [
     { name = "catboost" },
     { name = "joblib" },
@@ -274,7 +274,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fang", git = "https://github.com/rachzy/fang?tag=v0.0.1-alpha" },
+    { name = "fang", git = "https://github.com/rachzy/fang?branch=main" },
     { name = "grpcio", specifier = ">=1.69" },
     { name = "protobuf", specifier = ">=5.29" },
 ]
