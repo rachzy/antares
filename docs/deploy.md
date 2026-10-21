@@ -18,7 +18,7 @@ Add these under Settings > Secrets and variables > Actions.
 ## VPS prerequisites
 
 - Docker with the compose plugin, `make` and `rsync` installed.
-- `$VPS_DEPLOY_PATH/.env` (kept across deploys) with at least `BIND=0.0.0.0` to expose the proxy publicly, and `ANTARES_ALLOWED_ORIGINS=http://<host>` matching the URL users open. `PROXY_PORT` defaults to `80`.
+- `$VPS_DEPLOY_PATH/.env` (kept across deploys) with at least `BIND=0.0.0.0` to expose the proxy publicly, and `ANTARES_ALLOWED_ORIGINS=<url>` matching the URL users open. `PROXY_PORT` defaults to `80`.
 
 ## Model bundles
 
@@ -29,3 +29,14 @@ make fang-models MODELS=/opt/antares-models/v1
 ```
 
 This writes `FANG_MODELS_DIR` to `.env`, bind-mounts it at `/var/lib/fang/models` and recreates only the `fang` container, so the other services keep running. Without it, Fang uses the empty `antares-fang-models` volume.
+
+## TLS
+
+The prod proxy is Caddy. Point a DNS A record at the VPS, open ports 80 and 443, and add to `.env`:
+
+```sh
+SITE_ADDRESS=your.domain.com
+ANTARES_ALLOWED_ORIGINS=https://your.domain.com
+```
+
+Caddy then gets and renews a Let's Encrypt certificate on its own (kept in the `antares-caddy-data` volume). Without `SITE_ADDRESS` it serves plain HTTP on port 80.
