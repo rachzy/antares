@@ -22,7 +22,11 @@
       "@spartan-ng/helm/table": ["./libs/ui/table/src/index.ts"],
       "@spartan-ng/helm/alert-dialog": ["./libs/ui/alert-dialog/src/index.ts"],
       "@spartan-ng/helm/input": ["./libs/ui/input/src/index.ts"],
-      "@spartan-ng/helm/checkbox": ["./libs/ui/checkbox/src/index.ts"]
+      "@spartan-ng/helm/checkbox": ["./libs/ui/checkbox/src/index.ts"],
+      "@spartan-ng/helm/autocomplete": ["./libs/ui/autocomplete/src/index.ts"],
+      "@spartan-ng/helm/popover": ["./libs/ui/popover/src/index.ts"],
+      "@spartan-ng/helm/input-group": ["./libs/ui/input-group/src/index.ts"],
+      "@spartan-ng/helm/textarea": ["./libs/ui/textarea/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

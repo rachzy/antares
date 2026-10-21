@@ -7,21 +7,21 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideLoader2, lucideSearch } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
+import { HlmAutocompleteImports } from '@spartan-ng/helm/autocomplete';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
-import { HlmInputImports } from '@spartan-ng/helm/input';
 import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { StarInfoStore } from '../../../stores/star-info.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
 import { StarDetailsView } from '../../containers/star-details/star-details';
+import { suggestKeplerStars } from './kepler-suggestions';
 import { simbadUrl } from './simbad-url';
 
 // The API matches within 4 arcsec; 0.05 deg (180 arcsec) across the view keeps the ring a few arcsec wide.
@@ -32,11 +32,10 @@ export const MAX_CONFIRM_FOV_DEG = 0.05;
   imports: [
     SkyViewer,
     StarDetailsView,
-    FormsModule,
     NgIcon,
     HlmButtonImports,
     HlmCheckboxImports,
-    HlmInputImports,
+    HlmAutocompleteImports,
     HlmAlertDialogImports,
   ],
   providers: [provideIcons({ lucideLoader2, lucideSearch })],
@@ -53,6 +52,10 @@ export class Select {
   protected readonly pending = signal<Target | null>(null);
   protected readonly query = signal('');
   protected readonly searching = signal(false);
+  protected readonly suggestionsOpen = signal(false);
+  protected readonly suggestions = computed(() =>
+    suggestKeplerStars(this.query()),
+  );
   protected readonly downloadAll = signal(false);
   protected readonly resolving = this.targets.loading;
 
@@ -116,6 +119,16 @@ export class Select {
     if (!center) return;
     this.awaiting.set(true);
     this.targets.resolveByPosition(center[0], center[1]);
+  }
+
+  protected pick(name: string | null): void {
+    if (!name) return;
+    this.query.set(name);
+    void this.search();
+  }
+
+  protected searchTyped(): void {
+    if (this.suggestions().length === 0) void this.search();
   }
 
   protected async search(): Promise<void> {
