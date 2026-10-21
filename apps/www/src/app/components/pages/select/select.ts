@@ -121,6 +121,11 @@ export class Select {
     this.targets.resolveByPosition(center[0], center[1]);
   }
 
+  protected openSuggestions(event: Event): void {
+    if (event.target instanceof HTMLInputElement)
+      this.suggestionsOpen.set(true);
+  }
+
   protected pick(name: string | null): void {
     if (!name) return;
     this.query.set(name);

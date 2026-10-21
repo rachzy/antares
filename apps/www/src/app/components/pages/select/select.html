@@ -49,8 +49,8 @@
       [state]="suggestionsOpen() ? 'open' : 'closed'"
       (stateChanged)="suggestionsOpen.set($event === 'open')"
       [autoHighlight]="true"
-      (focusin)="suggestionsOpen.set(true)"
-      (click)="suggestionsOpen.set(true)"
+      (focusin)="openSuggestions($event)"
+      (click)="openSuggestions($event)"
       (keydown.enter)="searchTyped()"
     >
       <hlm-autocomplete-input
