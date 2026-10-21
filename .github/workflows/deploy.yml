@@ -1,0 +1,44 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+      SSH_PORT: ${{ secrets.VPS_PORT || '22' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CONF
+          Host vps
+            HostName ${{ secrets.VPS_HOST }}
+            User ${{ secrets.VPS_USER }}
+            Port ${SSH_PORT}
+            IdentityFile ~/.ssh/id_deploy
+            StrictHostKeyChecking yes
+          CONF
+
+      - name: Sync repository to the VPS
+        run: |
+          ssh vps "mkdir -p '$DEPLOY_PATH'"
+          rsync -az --delete \
+            --exclude '.git/' --exclude '.env' --exclude '.data/' --exclude 'node_modules/' \
+            ./ "vps:$DEPLOY_PATH/"
+
+      - name: Build and start the production stack
+        run: ssh vps "cd '$DEPLOY_PATH' && make build-up ENV=prod && docker image prune -f"

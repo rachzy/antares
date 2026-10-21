@@ -1,0 +1,74 @@
+name: antares
+
+x-python-healthcheck: &python-healthcheck
+  interval: 10s
+  timeout: 3s
+  retries: 5
+  start_period: 20s
+
+services:
+  shaula:
+    image: antares-shaula:local
+    build:
+      context: .
+      dockerfile: apps/shaula/Dockerfile
+    volumes:
+      - antares-shaula-cache:/var/cache/shaula/lightkurve
+    healthcheck:
+      <<: *python-healthcheck
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import socket; socket.create_connection(('127.0.0.1', 50051), 2)",
+        ]
+
+  fang:
+    image: antares-fang:local
+    build:
+      context: .
+      dockerfile: apps/fang/Dockerfile
+    environment:
+      FANG_ARTIFACT_DIR: /var/lib/fang/models
+    volumes:
+      - antares-fang-models:/var/lib/fang/models
+    healthcheck:
+      <<: *python-healthcheck
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import socket; socket.create_connection(('127.0.0.1', 50052), 2)",
+        ]
+
+  api:
+    image: antares-api:local
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      ANTARES_SHAULA_ADDR: shaula:50051
+      ANTARES_FANG_ADDR: fang:50052
+      ANTARES_ALLOWED_ORIGINS: ${ANTARES_ALLOWED_ORIGINS:-http://localhost:${WWW_PORT:-8080},http://127.0.0.1:${WWW_PORT:-8080}}
+    volumes:
+      - antares-api-data:/var/lib/antares
+    depends_on:
+      shaula:
+        condition: service_healthy
+      fang:
+        condition: service_healthy
+
+  www:
+    image: antares-www:local
+    build:
+      context: .
+      dockerfile: apps/www/Dockerfile
+    depends_on:
+      - api
+
+volumes:
+  antares-shaula-cache:
+  antares-fang-models:
+  antares-api-data:
