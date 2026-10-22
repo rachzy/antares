@@ -47,7 +47,7 @@
       (searchChange)="query.set($event)"
       (valueChange)="pick($event)"
       [state]="suggestionsOpen() ? 'open' : 'closed'"
-      (stateChanged)="suggestionsOpen.set($event === 'open')"
+      (stateChanged)="setSuggestionsState($event)"
       [autoHighlight]="true"
       (focusin)="openSuggestions($event)"
       (click)="openSuggestions($event)"

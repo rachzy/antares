@@ -50,7 +50,7 @@ export class Select {
   private readonly sky = viewChild(SkyViewer);
   private readonly awaiting = signal(false);
   protected readonly pending = signal<Target | null>(null);
-  private pickedAt = 0;
+  private closedAt = 0;
   protected readonly query = signal('');
   protected readonly searching = signal(false);
   protected readonly suggestionsOpen = signal(false);
@@ -122,16 +122,20 @@ export class Select {
     this.targets.resolveByPosition(center[0], center[1]);
   }
 
+  protected setSuggestionsState(state: string): void {
+    if (state !== 'open') this.closedAt = Date.now();
+    this.suggestionsOpen.set(state === 'open');
+  }
+
   protected openSuggestions(event: Event): void {
     if (!(event.target instanceof HTMLInputElement)) return;
-    // Closing the popup hands focus back to the input, which must not reopen it.
-    if (event.type === 'focusin' && Date.now() - this.pickedAt < 300) return;
+    // Closing the popup (pick, Escape, outside click) hands focus back to the input, which must not reopen it.
+    if (event.type === 'focusin' && Date.now() - this.closedAt < 300) return;
     this.suggestionsOpen.set(true);
   }
 
   protected pick(name: string | null): void {
     if (!name) return;
-    this.pickedAt = Date.now();
     this.query.set(name);
     void this.search();
   }

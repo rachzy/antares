@@ -281,6 +281,21 @@ describe('Select', () => {
     expect(document.querySelector('[role="option"]')).toBeNull();
   });
 
+  it('stays closed after an outside click until the input is focused again', async () => {
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    await fixture.whenStable();
+    expect(document.querySelector('[role="option"]')).not.toBeNull();
+    document.body.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true }),
+    );
+    document.body.click();
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    await fixture.whenStable();
+    expect(document.querySelector('[role="option"]')).toBeNull();
+  });
+
   it('ignores an empty search', async () => {
     const { fixture, el } = await mount();
     el.querySelector('form')!.dispatchEvent(new Event('submit'));
