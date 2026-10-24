@@ -241,3 +241,61 @@ def test_predict_with_no_features_aborts_invalid_argument(tmp_path):
         service.Predict(fang_pb2.PredictRequest(), context)
 
     assert context.code == grpc.StatusCode.INVALID_ARGUMENT
+
+
+def _run(tmp_path, run_id="run-1"):
+    directory = tmp_path / run_id
+    directory.mkdir()
+    return RunInfo(
+        run_id=run_id,
+        created_at="",
+        schema_version=1,
+        selected_model="lightgbm",
+        threshold=0.42,
+        path=directory,
+    )
+
+
+def test_get_run_settings_returns_the_runs_best_params(tmp_path, monkeypatch):
+    run = _run(tmp_path)
+    (run.path / "summary.json").write_text(
+        '{"best_params": {"lightgbm": {"n_estimators": 300, "learning_rate": 0.05}, '
+        '"meta": {"C": 10}}}'
+    )
+    monkeypatch.setattr(servicer_module, "_resolve_run", lambda base, run_id: run)
+
+    response = FangServicer(artifact_dir=tmp_path).GetRunSettings(
+        fang_pb2.GetRunSettingsRequest(run_id="run-1"), _Context()
+    )
+
+    assert response.run_id == "run-1"
+    assert response.selected_model == "lightgbm"
+    assert response.threshold == pytest.approx(0.42)
+    assert from_struct(response.best_params) == {
+        "lightgbm": {"n_estimators": 300, "learning_rate": 0.05},
+        "meta": {"C": 10},
+    }
+
+
+def test_get_run_settings_is_not_found_for_an_unservable_run(tmp_path):
+    context = _Context()
+    with pytest.raises(_Aborted):
+        FangServicer(artifact_dir=tmp_path).GetRunSettings(
+            fang_pb2.GetRunSettingsRequest(run_id="../x"), context
+        )
+    assert context.code == grpc.StatusCode.NOT_FOUND
+
+
+@pytest.mark.parametrize("summary", [None, "not json", "[]", '{"best_params": 3}'])
+def test_get_run_settings_fails_precondition_without_usable_params(tmp_path, monkeypatch, summary):
+    run = _run(tmp_path)
+    if summary is not None:
+        (run.path / "summary.json").write_text(summary)
+    monkeypatch.setattr(servicer_module, "_resolve_run", lambda base, run_id: run)
+
+    context = _Context()
+    with pytest.raises(_Aborted):
+        FangServicer(artifact_dir=tmp_path).GetRunSettings(
+            fang_pb2.GetRunSettingsRequest(), context
+        )
+    assert context.code == grpc.StatusCode.FAILED_PRECONDITION

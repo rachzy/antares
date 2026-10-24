@@ -11,6 +11,7 @@ option go_package = "github.com/rachzy/antares/libs/proto/gen/go/antares/fang/v1
 service Fang {
   rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  rpc GetRunSettings(GetRunSettingsRequest) returns (GetRunSettingsResponse);
   rpc Predict(PredictRequest) returns (PredictResponse);
 }
 
@@ -33,6 +34,19 @@ message RunInfo {
 
 message ListRunsResponse {
   repeated RunInfo runs = 1;
+}
+
+message GetRunSettingsRequest {
+  // Empty selects the newest run.
+  string run_id = 1;
+}
+
+message GetRunSettingsResponse {
+  string run_id = 1;
+  string selected_model = 2;
+  double threshold = 3;
+  // Tuned hyperparameters keyed by learner (lightgbm, catboost, extra_trees, meta).
+  google.protobuf.Struct best_params = 4;
 }
 
 message PredictRequest {
