@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import grpc
@@ -298,4 +299,109 @@ def test_get_run_settings_fails_precondition_without_usable_params(tmp_path, mon
         FangServicer(artifact_dir=tmp_path).GetRunSettings(
             fang_pb2.GetRunSettingsRequest(), context
         )
+    assert context.code == grpc.StatusCode.FAILED_PRECONDITION
+
+
+_REPORT = {
+    "dataset": {
+        "n_rows": 120,
+        "n_stars": 40,
+        "n_files": 41,
+        "n_features": 36,
+        "n_unlabelled": 3,
+        "n_positive": 30,
+        "n_negative": 90,
+        "status_counts": {"accepted": 100, "provisional": 20},
+        "stars": ["KIC 1", "KIC 2"],
+    },
+    "models": {
+        "lightgbm": {
+            "crossfit_metrics": {"confusion_matrix_counts": {"tp": 28, "fp": 6, "fn": 2, "tn": 84}}
+        },
+        "stack": {
+            "crossfit_metrics": {"confusion_matrix_counts": {"tp": 29, "fp": 7, "fn": 1, "tn": 83}}
+        },
+    },
+}
+
+
+def _dataset_run(tmp_path, monkeypatch, report=_REPORT, metrics=None):
+    run = _run(tmp_path)
+    if report is not None:
+        (run.path / "training_report.json").write_text(json.dumps(report))
+    if metrics is not None:
+        (run.path / "evaluation").mkdir()
+        (run.path / "evaluation" / "metrics.json").write_text(json.dumps(metrics))
+    monkeypatch.setattr(servicer_module, "_resolve_run", lambda base, run_id: run)
+    return run
+
+
+def _get_dataset(tmp_path, context=None):
+    return FangServicer(artifact_dir=tmp_path).GetRunDataset(
+        fang_pb2.GetRunDatasetRequest(), context or _Context()
+    )
+
+
+def _counts(matrix):
+    return (matrix.tp, matrix.fp, matrix.fn, matrix.tn, matrix.source)
+
+
+def test_get_run_dataset_reports_counts_and_cross_fit_matrices(tmp_path, monkeypatch):
+    _dataset_run(tmp_path, monkeypatch)
+
+    response = _get_dataset(tmp_path)
+
+    assert response.run_id == "run-1"
+    assert response.selected_model == "lightgbm"
+    assert (response.n_rows, response.n_stars, response.n_files) == (120, 40, 41)
+    assert (response.n_features, response.n_unlabelled) == (36, 3)
+    assert (response.n_positive, response.n_negative) == (30, 90)
+    assert dict(response.status_counts) == {"accepted": 100, "provisional": 20}
+    assert set(response.confusion_matrices) == {"lightgbm", "stack"}
+    assert _counts(response.confusion_matrices["lightgbm"]) == (28, 6, 2, 84, "cross_fit")
+    assert _counts(response.confusion_matrices["stack"]) == (29, 7, 1, 83, "cross_fit")
+
+
+def test_get_run_dataset_prefers_held_out_matrices_per_model(tmp_path, monkeypatch):
+    metrics = {
+        "pooled_metrics": {
+            "lightgbm": {"confusion_matrix_counts": {"tp": 25, "fp": 9, "fn": 5, "tn": 81}}
+        }
+    }
+    _dataset_run(tmp_path, monkeypatch, metrics=metrics)
+
+    matrices = _get_dataset(tmp_path).confusion_matrices
+
+    assert _counts(matrices["lightgbm"]) == (25, 9, 5, 81, "held_out")
+    assert _counts(matrices["stack"]) == (29, 7, 1, 83, "cross_fit")
+
+
+def test_get_run_dataset_has_no_matrices_when_none_are_recorded(tmp_path, monkeypatch):
+    report = {"dataset": _REPORT["dataset"], "models": {}}
+    _dataset_run(tmp_path, monkeypatch, report=report)
+
+    response = _get_dataset(tmp_path)
+
+    assert dict(response.confusion_matrices) == {}
+    assert response.n_rows == 120
+
+
+def test_get_run_dataset_is_not_found_for_an_unservable_run(tmp_path):
+    context = _Context()
+    with pytest.raises(_Aborted):
+        FangServicer(artifact_dir=tmp_path).GetRunDataset(
+            fang_pb2.GetRunDatasetRequest(run_id="../x"), context
+        )
+    assert context.code == grpc.StatusCode.NOT_FOUND
+
+
+@pytest.mark.parametrize("report", [None, "not json", "[]", '{"dataset": 3}'])
+def test_get_run_dataset_fails_precondition_without_a_usable_report(tmp_path, monkeypatch, report):
+    run = _dataset_run(tmp_path, monkeypatch, report=None)
+    if report is not None:
+        (run.path / "training_report.json").write_text(report)
+
+    context = _Context()
+    with pytest.raises(_Aborted):
+        _get_dataset(tmp_path, context)
     assert context.code == grpc.StatusCode.FAILED_PRECONDITION

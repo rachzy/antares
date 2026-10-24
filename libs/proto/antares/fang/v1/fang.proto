@@ -12,6 +12,7 @@ service Fang {
   rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
   rpc GetRunSettings(GetRunSettingsRequest) returns (GetRunSettingsResponse);
+  rpc GetRunDataset(GetRunDatasetRequest) returns (GetRunDatasetResponse);
   rpc Predict(PredictRequest) returns (PredictResponse);
 }
 
@@ -47,6 +48,37 @@ message GetRunSettingsResponse {
   double threshold = 3;
   // Tuned hyperparameters keyed by learner (lightgbm, catboost, extra_trees, meta).
   google.protobuf.Struct best_params = 4;
+}
+
+message GetRunDatasetRequest {
+  // Empty selects the newest run.
+  string run_id = 1;
+}
+
+message ConfusionMatrix {
+  int64 tp = 1;
+  int64 fp = 2;
+  int64 fn = 3;
+  int64 tn = 4;
+  // "held_out" (nested evaluation, pooled over held-out stars) or "cross_fit" (training rows).
+  string source = 5;
+}
+
+message GetRunDatasetResponse {
+  string run_id = 1;
+  string selected_model = 2;
+  int64 n_rows = 3;
+  int64 n_stars = 4;
+  int64 n_files = 5;
+  int64 n_features = 6;
+  int64 n_positive = 7;
+  int64 n_negative = 8;
+  int64 n_unlabelled = 9;
+  // Candidate rows per detection status (for example accepted, provisional).
+  map<string, int64> status_counts = 10;
+  // Confusion counts per model (stack and each base learner), held-out when the run was
+  // evaluated and cross-fit otherwise. A model without recorded counts is absent.
+  map<string, ConfusionMatrix> confusion_matrices = 11;
 }
 
 message PredictRequest {
