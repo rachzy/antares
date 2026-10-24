@@ -248,6 +248,36 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
+  /ml/runs/{run_id}/dataset:
+    get:
+      tags: [ml]
+      operationId: getRunDataset
+      summary: Get a model run's training dataset
+      description: >-
+        The label and status counts of the data the run was trained on, and a confusion matrix per
+        model (`stack` and each base learner). Counts are held out (nested evaluation) when the run
+        was evaluated and cross-fit otherwise; see `source`. A model without recorded counts is
+        absent from `confusion_matrices`.
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The run's dataset.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDataset'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
   /ml/predict:
     post:
       tags: [ml]
@@ -757,6 +787,71 @@ components:
           selected_model: lightgbm,
           threshold: 0.5,
           best_params: { lightgbm: { n_estimators: 300, learning_rate: 0.05 } },
+        }
+
+    ConfusionMatrix:
+      type: object
+      required: [tp, fp, fn, tn, source]
+      properties:
+        tp: { type: integer, format: int64 }
+        fp: { type: integer, format: int64 }
+        fn: { type: integer, format: int64 }
+        tn: { type: integer, format: int64 }
+        source:
+          type: string
+          enum: [held_out, cross_fit]
+          description: Held-out stars of the nested evaluation, or cross-fitted training rows.
+
+    RunDataset:
+      type: object
+      required:
+        - run_id
+        - selected_model
+        - n_rows
+        - n_stars
+        - n_files
+        - n_features
+        - n_positive
+        - n_negative
+        - n_unlabelled
+        - status_counts
+        - confusion_matrices
+      properties:
+        run_id: { type: string }
+        selected_model: { type: string }
+        n_rows: { type: integer, format: int64, description: Candidate rows. }
+        n_stars: { type: integer, format: int64 }
+        n_files: { type: integer, format: int64 }
+        n_features: { type: integer, format: int64 }
+        n_positive: { type: integer, format: int64, description: Rows labelled CONFIRMED. }
+        n_negative: { type: integer, format: int64, description: Rows labelled FALSE-POSITIVE. }
+        n_unlabelled: { type: integer, format: int64 }
+        status_counts:
+          type: object
+          description: Candidate rows per detection status.
+          additionalProperties: { type: integer, format: int64 }
+        confusion_matrices:
+          type: object
+          description: Per model name (`stack`, `lightgbm`, `catboost`, `extra_trees`).
+          additionalProperties:
+            $ref: '#/components/schemas/ConfusionMatrix'
+      example:
+        {
+          run_id: '20260901T120000Z-abcd1234',
+          selected_model: lightgbm,
+          n_rows: 5200,
+          n_stars: 1800,
+          n_files: 1810,
+          n_features: 36,
+          n_positive: 640,
+          n_negative: 4560,
+          n_unlabelled: 0,
+          status_counts: { accepted: 4900, provisional: 300 },
+          confusion_matrices:
+            {
+              lightgbm: { tp: 610, fp: 380, fn: 30, tn: 4180, source: held_out },
+              stack: { tp: 612, fp: 400, fn: 28, tn: 4160, source: held_out },
+            },
         }
 
     PredictResult:

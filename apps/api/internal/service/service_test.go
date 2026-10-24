@@ -589,6 +589,21 @@ func TestRunSettingsDefaultToTheNewestRunAndRejectUnknownOnes(t *testing.T) {
 	}
 }
 
+func TestRunDatasetDefaultsToTheNewestRunAndRejectsUnknownOnes(t *testing.T) {
+	e := newEnv(t, func(e *env) {
+		e.fang.Runs = []upstream.Run{{RunID: "20260101T000000Z-aaaaaaaa"}, {RunID: "20261231T000000Z-bbbbbbbb"}}
+	})
+	ctx := context.Background()
+
+	got, err := e.svc.RunDataset(ctx, "")
+	if err != nil || got.RunID != "20261231T000000Z-bbbbbbbb" || got.ConfusionMatrices["stack"].Source != "held_out" {
+		t.Fatalf("no run id must select the newest: %+v, %v", got, err)
+	}
+	if _, err := e.svc.RunDataset(ctx, "nope"); err == nil || kindOf(t, err) != service.KindNotFound {
+		t.Fatalf("an unknown run must be not found, got %v", err)
+	}
+}
+
 func TestRunsAreReturnedNewestFirst(t *testing.T) {
 	e := newEnv(t, func(e *env) {
 		e.fang.Runs = []upstream.Run{

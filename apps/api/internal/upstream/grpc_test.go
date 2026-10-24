@@ -278,6 +278,17 @@ func (f *fakeFangServer) GetRunSettings(_ context.Context, r *fangv1.GetRunSetti
 	return &fangv1.GetRunSettingsResponse{RunId: r.GetRunId(), SelectedModel: "lightgbm", Threshold: 0.42, BestParams: params}, nil
 }
 
+func (f *fakeFangServer) GetRunDataset(_ context.Context, r *fangv1.GetRunDatasetRequest) (*fangv1.GetRunDatasetResponse, error) {
+	if r.GetRunId() == "missing" {
+		return nil, status.Error(codes.NotFound, `No servable run "missing"`)
+	}
+	return &fangv1.GetRunDatasetResponse{
+		RunId: r.GetRunId(), SelectedModel: "lightgbm", NRows: 120, NStars: 40, NPositive: 30, NNegative: 90,
+		StatusCounts:      map[string]int64{"accepted": 100, "provisional": 20},
+		ConfusionMatrices: map[string]*fangv1.ConfusionMatrix{"lightgbm": {Tp: 25, Fp: 9, Fn: 5, Tn: 81, Source: "held_out"}},
+	}, nil
+}
+
 func (f *fakeFangServer) Predict(_ context.Context, r *fangv1.PredictRequest) (*fangv1.PredictResponse, error) {
 	f.lastPredict = r
 	switch r.GetRunId() {
@@ -379,6 +390,26 @@ func TestAnUpstreamDeadlineWithinTheCallersDeadlineIsUnavailable(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > time.Second {
 		t.Fatalf("returned after %v, must not wait for the caller's deadline", elapsed)
+	}
+}
+
+func TestFangRunDataset(t *testing.T) {
+	client, _ := fangClient(t)
+	ctx := context.Background()
+
+	got, err := client.RunDataset(ctx, "20261001T120000Z-abcd1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := got.ConfusionMatrices["lightgbm"]
+	if got.RunID != "20261001T120000Z-abcd1234" || got.Rows != 120 || got.Positive != 30 || got.StatusCounts["provisional"] != 20 ||
+		m.TP != 25 || m.FP != 9 || m.FN != 5 || m.TN != 81 || m.Source != "held_out" {
+		t.Fatalf("dataset = %+v", got)
+	}
+
+	_, err = client.RunDataset(ctx, "missing")
+	if upstream.KindOf(err) != upstream.KindNotFound {
+		t.Fatalf("a missing run must map to not found, got %v", err)
 	}
 }
 

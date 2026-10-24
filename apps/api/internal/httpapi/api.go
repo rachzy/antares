@@ -21,6 +21,7 @@ type Backend interface {
 	Predict(ctx context.Context, in service.PredictInput) (service.PredictResult, error)
 	Runs(ctx context.Context) ([]upstream.Run, error)
 	RunSettings(ctx context.Context, runID string) (upstream.RunSettings, error)
+	RunDataset(ctx context.Context, runID string) (upstream.RunDataset, error)
 	Watch(ctx context.Context, token string, since uint64) (*service.Watch, error)
 	Status(ctx context.Context, token string) (service.SubscriptionView, error)
 	LatestFeatures(ctx context.Context, in service.ResolveInput) (service.FeaturesView, error)
@@ -54,6 +55,7 @@ var routes = []route{
 	{Route{"GET", "/targets/info"}, (*API).starInfo},
 	{Route{"GET", "/ml/runs"}, (*API).runs},
 	{Route{"GET", "/ml/runs/{run_id}/hyperparameters"}, (*API).runHyperparameters},
+	{Route{"GET", "/ml/runs/{run_id}/dataset"}, (*API).runDataset},
 	{Route{"POST", "/ml/predict"}, (*API).predict},
 	{Route{"POST", "/pipeline/extract"}, (*API).extract},
 	{Route{"POST", "/analyze"}, (*API).analyze},

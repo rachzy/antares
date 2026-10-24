@@ -133,10 +133,39 @@ type RunSettings struct {
 	BestParams    map[string]any `json:"best_params"`
 }
 
+// ConfusionMatrix counts a model's decisions at its saved threshold. Source is "held_out" when the
+// counts come from the nested evaluation on held-out stars and "cross_fit" when they come from the
+// training rows' cross-fitted predictions.
+type ConfusionMatrix struct {
+	TP     int64  `json:"tp"`
+	FP     int64  `json:"fp"`
+	FN     int64  `json:"fn"`
+	TN     int64  `json:"tn"`
+	Source string `json:"source"`
+}
+
+// RunDataset describes the data a model run was trained on and how each of its models performed on
+// it. The label counts are shared by all models of the run; the confusion matrices are per model
+// and a model without recorded counts is absent.
+type RunDataset struct {
+	RunID             string                     `json:"run_id"`
+	SelectedModel     string                     `json:"selected_model"`
+	Rows              int64                      `json:"n_rows"`
+	Stars             int64                      `json:"n_stars"`
+	Files             int64                      `json:"n_files"`
+	Features          int64                      `json:"n_features"`
+	Positive          int64                      `json:"n_positive"`
+	Negative          int64                      `json:"n_negative"`
+	Unlabelled        int64                      `json:"n_unlabelled"`
+	StatusCounts      map[string]int64           `json:"status_counts"`
+	ConfusionMatrices map[string]ConfusionMatrix `json:"confusion_matrices"`
+}
+
 // Fang is the classification service and its registry of trained runs.
 type Fang interface {
 	Version(ctx context.Context) (string, error)
 	ListRuns(ctx context.Context) ([]Run, error)
 	RunSettings(ctx context.Context, runID string) (RunSettings, error)
+	RunDataset(ctx context.Context, runID string) (RunDataset, error)
 	Predict(ctx context.Context, req PredictRequest) (Prediction, error)
 }
