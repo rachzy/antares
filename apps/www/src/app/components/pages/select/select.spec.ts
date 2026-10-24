@@ -313,6 +313,44 @@ describe('Select', () => {
     expect(document.querySelector('[role="option"]')).toBeNull();
   });
 
+  it('searches for what was typed, not an earlier highlighted suggestion, on Enter', async () => {
+    gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    for (const text of ['K', 'Kepler-1', 'Kepler-11']) {
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+    }
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+    await fixture.whenStable();
+    expect(gotoObject).toHaveBeenCalledTimes(1);
+    expect(gotoObject).toHaveBeenCalledWith('Kepler-11', expect.any(Object));
+  });
+
+  it('searches the suggestion chosen with the arrow keys once on Enter', async () => {
+    gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    input.value = 'Kepler-18';
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    const key = (k: string) =>
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: k, bubbles: true }),
+      );
+    key('ArrowDown');
+    await fixture.whenStable();
+    key('Enter');
+    await fixture.whenStable();
+    expect(gotoObject).toHaveBeenCalledTimes(1);
+    expect(gotoObject).toHaveBeenCalledWith('Kepler-18', expect.any(Object));
+  });
+
   it('stays closed after an outside click until the input is focused again', async () => {
     const { fixture, el } = await mount();
     const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;

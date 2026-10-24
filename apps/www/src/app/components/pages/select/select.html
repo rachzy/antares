@@ -60,7 +60,7 @@
       (valueChange)="pick($event)"
       [state]="suggestionsOpen() ? 'open' : 'closed'"
       (stateChanged)="setSuggestionsState($event)"
-      [autoHighlight]="true"
+      [autoHighlight]="false"
       (focusin)="openSuggestions($event)"
       (click)="openSuggestions($event)"
       (keydown.enter)="searchTyped()"

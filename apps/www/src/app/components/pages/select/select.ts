@@ -183,8 +183,9 @@ export class Select {
     void this.search();
   }
 
+  // Picking a highlighted suggestion already searches (and sets the guard), so this only covers typed text.
   protected searchTyped(): void {
-    if (this.suggestions().length === 0) void this.search();
+    void this.search();
   }
 
   protected async search(): Promise<void> {
