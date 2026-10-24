@@ -1,0 +1,167 @@
+<div class="mx-auto flex max-w-5xl flex-col gap-6">
+  <header>
+    <p class="text-muted-foreground text-xs tracking-[0.12em] uppercase">
+      Classification Model
+    </p>
+    <h1 class="mt-2 font-serif text-4xl font-semibold">Dataset</h1>
+    <p class="text-muted-foreground mt-3 max-w-xl">
+      How the labelled candidates are split, and how each model did on them.
+    </p>
+  </header>
+
+  @if (model.runsLoaded() && model.runs().length === 0) {
+    <p data-empty class="text-muted-foreground">
+      No model has been trained yet.
+    </p>
+  } @else {
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+      <an-run-picker />
+      @if (models().length > 0) {
+        <div
+          role="group"
+          aria-label="Model"
+          class="bg-card border-border flex flex-wrap gap-1 rounded-xl border p-1"
+        >
+          @for (m of models(); track m.key) {
+            <button
+              type="button"
+              data-model
+              class="min-h-10 rounded-lg px-4 text-sm"
+              [class.bg-primary]="m.key === active()"
+              [class.text-primary-foreground]="m.key === active()"
+              [class.font-medium]="m.key === active()"
+              [class.text-muted-foreground]="m.key !== active()"
+              [attr.aria-pressed]="m.key === active()"
+              (click)="choose(m.key)"
+            >
+              {{ m.name }}
+              @if (m.selected) {
+                <span class="text-[11px] font-normal">(selected)</span>
+              }
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    @if (data(); as d) {
+      <dl class="grid grid-cols-3 gap-3">
+        <div class="bg-card border-border rounded-xl border p-4">
+          <dt class="text-muted-foreground text-xs">Candidates</dt>
+          <dd data-rows class="mt-1.5 font-mono">{{ d.n_rows | number }}</dd>
+        </div>
+        <div class="bg-card border-border rounded-xl border p-4">
+          <dt class="text-muted-foreground text-xs">Stars</dt>
+          <dd class="mt-1.5 font-mono">{{ d.n_stars | number }}</dd>
+        </div>
+        <div class="bg-card border-border rounded-xl border p-4">
+          <dt class="text-muted-foreground text-xs">Features</dt>
+          <dd class="mt-1.5 font-mono">{{ d.n_features | number }}</dd>
+        </div>
+      </dl>
+
+      <section class="bg-card border-border rounded-xl border p-6">
+        <h2 class="font-medium">Candidates by label</h2>
+        <div class="mt-4 flex h-10 overflow-hidden rounded-lg">
+          @for (l of labels(); track l.name) {
+            <div [class]="l.tone" [style.width.%]="l.share"></div>
+          }
+        </div>
+        <ul class="mt-4 flex flex-wrap gap-x-7 gap-y-2 text-sm">
+          @for (l of labels(); track l.name) {
+            <li data-label class="flex items-center gap-2">
+              <span class="size-2.5 rounded-sm" [class]="l.tone"></span>
+              {{ l.name }}
+              <strong class="font-mono font-medium">{{
+                l.count | number
+              }}</strong>
+              <span class="text-muted-foreground"
+                >({{ l.share | number: '1.0-1' }}%)</span
+              >
+            </li>
+          }
+        </ul>
+      </section>
+
+      @if (matrix(); as m) {
+        <section class="bg-card border-border rounded-xl border p-6">
+          <h2 class="font-medium">Predictions vs. truth</h2>
+          <div class="mt-5 flex flex-wrap items-start gap-8">
+            <div
+              class="grid max-w-md min-w-72 flex-1 grid-cols-[5.5rem_1fr_1fr] gap-2"
+            >
+              <span></span>
+              <span class="text-muted-foreground text-center text-xs"
+                >Predicted planet</span
+              >
+              <span class="text-muted-foreground text-center text-xs"
+                >Predicted not</span
+              >
+
+              <span class="text-muted-foreground flex items-center text-xs"
+                >Actual planet</span
+              >
+              <div
+                data-cell="tp"
+                class="border-primary bg-primary/15 rounded-lg border p-4"
+              >
+                <div class="text-muted-foreground text-xs">True positive</div>
+                <div class="mt-1 font-mono text-3xl">{{ m.tp | number }}</div>
+              </div>
+              <div
+                data-cell="fn"
+                class="border-border bg-muted rounded-lg border border-dashed p-4"
+              >
+                <div class="text-muted-foreground text-xs">False negative</div>
+                <div class="mt-1 font-mono text-3xl">{{ m.fn | number }}</div>
+              </div>
+
+              <span class="text-muted-foreground flex items-center text-xs"
+                >Actual not</span
+              >
+              <div
+                data-cell="fp"
+                class="border-border bg-muted rounded-lg border border-dashed p-4"
+              >
+                <div class="text-muted-foreground text-xs">False positive</div>
+                <div class="mt-1 font-mono text-3xl">{{ m.fp | number }}</div>
+              </div>
+              <div
+                data-cell="tn"
+                class="border-primary bg-primary/15 rounded-lg border p-4"
+              >
+                <div class="text-muted-foreground text-xs">True negative</div>
+                <div class="mt-1 font-mono text-3xl">{{ m.tn | number }}</div>
+              </div>
+            </div>
+
+            <div class="grid min-w-52 flex-1 grid-cols-2 gap-3">
+              <div class="bg-muted rounded-xl p-4">
+                <div class="text-muted-foreground text-xs">Precision</div>
+                <div data-precision class="mt-1.5 font-mono text-xl">
+                  {{
+                    precision() === null ? '—' : (precision() | number: '1.2-2')
+                  }}
+                </div>
+              </div>
+              <div class="bg-muted rounded-xl p-4">
+                <div class="text-muted-foreground text-xs">Recall</div>
+                <div data-recall class="mt-1.5 font-mono text-xl">
+                  {{ recall() === null ? '—' : (recall() | number: '1.2-2') }}
+                </div>
+              </div>
+              <p
+                data-source
+                class="text-muted-foreground col-span-full text-sm"
+              >
+                {{ source() }}
+              </p>
+            </div>
+          </div>
+        </section>
+      }
+    } @else if (model.loading()) {
+      <p class="text-muted-foreground">Loading the run&hellip;</p>
+    }
+  }
+</div>

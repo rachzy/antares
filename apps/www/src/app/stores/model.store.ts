@@ -7,6 +7,7 @@ import type { Run, RunDataset, RunHyperparameters } from '../api/api.types';
 
 interface ModelState {
   runs: Run[];
+  runsLoaded: boolean;
   runId: string | null;
   hyperparameters: RunHyperparameters | null;
   dataset: RunDataset | null;
@@ -19,6 +20,7 @@ export const ModelStore = signalStore(
   { providedIn: 'root' },
   withState<ModelState>({
     runs: [],
+    runsLoaded: false,
     runId: null,
     hyperparameters: null,
     dataset: null,
@@ -40,6 +42,7 @@ export const ModelStore = signalStore(
               tap((runs) =>
                 patchState(store, {
                   runs,
+                  runsLoaded: true,
                   runId: runs.some((r) => r.run_id === store.runId())
                     ? store.runId()
                     : (runs[0]?.run_id ?? null),

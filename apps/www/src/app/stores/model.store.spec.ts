@@ -48,6 +48,7 @@ describe('ModelStore', () => {
     store.loadRuns();
     expect(store.runs().map((r) => r.run_id)).toEqual(['b', 'a']);
     expect(store.runId()).toBe('b');
+    expect(store.runsLoaded()).toBe(true);
   });
 
   it('keeps the chosen run when the runs reload', () => {

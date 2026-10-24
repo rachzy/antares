@@ -1,0 +1,87 @@
+<div class="mx-auto flex max-w-5xl flex-col gap-6">
+  <header>
+    <p class="text-muted-foreground text-xs tracking-[0.12em] uppercase">
+      Classification Model
+    </p>
+    <h1 class="mt-2 font-serif text-4xl font-semibold">Hyperparameters</h1>
+    <p class="text-muted-foreground mt-3 max-w-xl">
+      The settings each learner ended up with after tuning, for the model run
+      serving predictions.
+    </p>
+  </header>
+
+  @if (model.runsLoaded() && model.runs().length === 0) {
+    <p data-empty class="text-muted-foreground">
+      No model has been trained yet.
+    </p>
+  } @else {
+    <an-run-picker />
+
+    @if (settings(); as s) {
+      <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="bg-card border-border rounded-xl border p-4">
+          <dt class="text-muted-foreground text-xs">Selected model</dt>
+          <dd data-selected class="mt-1.5 truncate font-mono">
+            {{ s.selected_model }}
+          </dd>
+        </div>
+        <div class="bg-card border-border rounded-xl border p-4">
+          <dt class="text-muted-foreground text-xs">Decision threshold</dt>
+          <dd class="mt-1.5 truncate font-mono">{{ s.threshold }}</dd>
+        </div>
+        <div class="bg-card border-border rounded-xl border p-4">
+          <dt class="text-muted-foreground text-xs">Schema version</dt>
+          <dd class="mt-1.5 truncate font-mono">
+            {{ run()?.schema_version ?? '—' }}
+          </dd>
+        </div>
+        <div class="bg-card border-border rounded-xl border p-4">
+          <dt class="text-muted-foreground text-xs">Trained</dt>
+          <dd class="mt-1.5 truncate font-mono">
+            @if (run()?.created_at; as at) {
+              {{ at | date: 'yyyy-MM-dd HH:mm' : 'UTC' }}
+            } @else {
+              —
+            }
+          </dd>
+        </div>
+      </dl>
+
+      <section class="grid gap-4 md:grid-cols-2">
+        @for (learner of learners(); track learner.key) {
+          <article
+            data-learner
+            class="bg-card rounded-xl border"
+            [class.border-primary]="learner.selected"
+            [class.border-border]="!learner.selected"
+          >
+            <header class="flex items-center gap-2.5 px-5 py-4">
+              <h2 class="flex-1 font-medium">{{ learner.name }}</h2>
+              @if (learner.selected) {
+                <span
+                  data-selected-chip
+                  class="bg-primary text-primary-foreground rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  >Selected</span
+                >
+              }
+            </header>
+            <table hlmTable class="font-mono text-xs">
+              <tbody hlmTBody>
+                @for (row of learner.rows; track row.key) {
+                  <tr hlmTr>
+                    <td hlmTd class="text-muted-foreground px-5">
+                      {{ row.key }}
+                    </td>
+                    <td hlmTd class="px-5 text-right">{{ row.value }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </article>
+        }
+      </section>
+    } @else if (model.loading()) {
+      <p class="text-muted-foreground">Loading the run&hellip;</p>
+    }
+  }
+</div>
