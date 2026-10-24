@@ -294,3 +294,19 @@ func TestLocateNamesAStarByItsCommonNameAndKeepsTheDesignation(t *testing.T) {
 		t.Errorf("display %q, designation %q", got.DisplayName, got.Designation)
 	}
 }
+
+func TestLocatePrefersAFamiliarDesignationOverATICNumber(t *testing.T) {
+	simbad := locateServer(t, `{"data": [[9, "* alf Sco", 247.35, -26.43, "M1Ib", "s*r", 5.9]]}`,
+		`{"data": [["TIC 175934060"], ["HIP 80763"], ["NAME Antares"]]}`)
+	defer simbad.Close()
+	nasa := nasaServer(t, map[string]string{"pscomppars": `[]`})
+	defer nasa.Close()
+
+	got, err := catalog.NewClient(simbad.URL, nasa.URL).Locate(context.Background(), 247.35, -26.43)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Catalog != "TIC" || got.CatalogID != "175934060" || got.Designation != "HIP 80763" || got.DisplayName != "Antares" {
+		t.Errorf("located = %+v", got)
+	}
+}

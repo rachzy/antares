@@ -307,8 +307,9 @@ func (c *Client) Locate(ctx context.Context, ra, dec float64) (Located, error) {
 		// Like Lookup, the archive only adds to what SIMBAD said, so its failure is not one.
 		_ = c.nasa(ctx, q, &out.Star)
 	}
-	// Without a mission entry the designation is the first catalogue name SIMBAD lists.
-	if q.Catalog == "" && len(out.Star.Aliases) > 0 {
+	// KIC and EPIC numbers are what people know those stars by; without one (a TIC number says
+	// little) the designation is the first catalogue name SIMBAD lists.
+	if (q.Catalog == "" || q.Catalog == "TIC") && len(out.Star.Aliases) > 0 {
 		out.Designation = out.Star.Aliases[0]
 	}
 	// The display name is the common name if the star has one, else a mission name such as
