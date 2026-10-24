@@ -211,6 +211,11 @@ func locateServer(t *testing.T, cone, aliases string) *httptest.Server {
 				http.Error(w, "bad ADQL "+q, http.StatusBadRequest)
 				return
 			}
+			// A planet shares its host's coordinates, so only an explicit filter keeps it from winning.
+			if !strings.Contains(q, "b.otype NOT IN ('Pl', 'Pl?')") {
+				http.Error(w, "planets not excluded "+q, http.StatusBadRequest)
+				return
+			}
 			_, _ = w.Write([]byte(cone))
 		case strings.Contains(q, "FROM ident"):
 			_, _ = w.Write([]byte(aliases))
