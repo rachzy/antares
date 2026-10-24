@@ -159,8 +159,16 @@ describe('RunStore', () => {
     expect(store.extract().status).toBe('idle');
     expect(store.extract().events).toEqual([]);
     expect(store.score().status).toBe('idle');
-    expect(store.unlocked()).toBe('download');
+    expect(store.unlocked()).toBe('select');
     expect(reset).toHaveBeenCalled();
+  });
+
+  it('keeps Download locked until an extraction starts', () => {
+    const store = setup();
+    store.confirm(star);
+    expect(store.unlocked()).toBe('select');
+    store.startExtract();
+    expect(store.unlocked()).toBe('download');
   });
 
   it('startExtract sends the star position with the mapped mission', () => {
@@ -169,6 +177,14 @@ describe('RunStore', () => {
     store.startExtract();
     expect(extract).toHaveBeenCalledWith(body);
     expect(store.extract().status).toBe('running');
+  });
+
+  it('startExtract adopts the star Shaula resolved', () => {
+    const store = setup();
+    store.confirm({ ...star, catalog: '', catalog_id: '' });
+    store.startExtract(false, { ...star, catalog: 'TIC' });
+    expect(store.star()?.catalog).toBe('TIC');
+    expect(extract).toHaveBeenLastCalledWith({ ...body, mission: 'TESS' });
   });
 
   it('startExtract sends download_all and keeps it for the score run', () => {

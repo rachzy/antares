@@ -68,8 +68,11 @@ export class ApiService {
     return this.post<Target>(API_ROUTES.resolveTarget, body);
   }
 
-  starInfo(query: string): Observable<StarInfo> {
-    return this.get<StarInfo>(API_ROUTES.starInfo, { query });
+  starInfo(ra_deg: number, dec_deg: number): Observable<StarInfo> {
+    return this.get<StarInfo>(API_ROUTES.starInfo, {
+      ra_deg: String(ra_deg),
+      dec_deg: String(dec_deg),
+    });
   }
 
   listRuns(): Observable<Run[]> {

@@ -55,6 +55,9 @@ describe('Select', () => {
   const loading = signal(false);
   const error = signal<ApiRequestError | null>(null);
   const resolveByPosition = vi.fn();
+  const located = signal<Target | null>(null);
+  const locateError = signal<ApiRequestError | null>(null);
+  const locate = vi.fn();
   const confirmed = signal<Target | null>(null);
   const confirm = vi.fn((t: Target) => confirmed.set(t));
   const loadInfo = vi.fn();
@@ -82,6 +85,9 @@ describe('Select', () => {
     loading.set(false);
     error.set(null);
     resolveByPosition.mockReset();
+    located.set(null);
+    locateError.set(null);
+    locate.mockReset();
     confirm.mockClear();
     startExtract.mockReset();
     loadInfo.mockReset();
@@ -104,9 +110,12 @@ describe('Select', () => {
         {
           provide: StarInfoStore,
           useValue: {
+            target: located,
+            error: locateError,
             details,
             loading: signal(false),
             failed: signal(false),
+            locate,
             load: loadInfo,
             reset: resetInfo,
           },
@@ -146,7 +155,7 @@ describe('Select', () => {
     const page = await mount();
     await page.zoom(MAX_CONFIRM_FOV_DEG / 2);
     page.button('Confirm star')?.click();
-    target.set(star);
+    located.set(star);
     await page.fixture.whenStable();
     return page;
   };
@@ -166,11 +175,12 @@ describe('Select', () => {
     expect(el.textContent).not.toContain('Zoom in until');
   });
 
-  it('resolves the sky center when Confirm is clicked', async () => {
+  it('looks up the sky center without asking Shaula when Confirm is clicked', async () => {
     const { zoom, button } = await mount();
     await zoom(MAX_CONFIRM_FOV_DEG / 2);
     button('Confirm star')?.click();
-    expect(resolveByPosition).toHaveBeenCalledWith(291.03, 48.14);
+    expect(locate).toHaveBeenCalledWith(291.03, 48.14);
+    expect(resolveByPosition).not.toHaveBeenCalled();
   });
 
   it('reads the sky center at click time', async () => {
@@ -178,7 +188,7 @@ describe('Select', () => {
     await zoom(MAX_CONFIRM_FOV_DEG / 2);
     center = [10.5, -20.25];
     button('Confirm star')?.click();
-    expect(resolveByPosition).toHaveBeenCalledWith(10.5, -20.25);
+    expect(locate).toHaveBeenCalledWith(10.5, -20.25);
   });
 
   it('shows the already confirmed star on return', async () => {
@@ -197,27 +207,27 @@ describe('Select', () => {
       designation: 'KIC 2',
     };
     page.button('Confirm star')?.click();
-    target.set(null);
-    target.set(other);
+    located.set(null);
+    located.set(other);
     await page.fixture.whenStable();
     expect(page.el.querySelector('h2')?.textContent).toContain('Kepler-2');
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(confirm).toHaveBeenLastCalledWith(other);
   });
 
-  it('disables Confirm while resolving', async () => {
+  it('disables Confirm while looking the star up', async () => {
     const { fixture, zoom, button } = await mount();
     await zoom(MAX_CONFIRM_FOV_DEG / 2);
-    loading.set(true);
+    button('Confirm star')?.click();
     await fixture.whenStable();
     expect(button('Confirm star')?.hasAttribute('disabled')).toBe(true);
   });
 
-  it('shows a spinner on Confirm while resolving', async () => {
+  it('shows a spinner on Confirm while looking the star up', async () => {
     const { fixture, el, zoom, button } = await mount();
     await zoom(MAX_CONFIRM_FOV_DEG / 2);
     expect(button('Confirm star')?.querySelector('[data-spinner]')).toBeNull();
-    loading.set(true);
+    button('Confirm star')?.click();
     await fixture.whenStable();
     expect(
       button('Confirm star')?.querySelector('[data-spinner]'),
@@ -303,6 +313,44 @@ describe('Select', () => {
     expect(document.querySelector('[role="option"]')).toBeNull();
   });
 
+  it('searches for what was typed, not an earlier highlighted suggestion, on Enter', async () => {
+    gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    for (const text of ['K', 'Kepler-1', 'Kepler-11']) {
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+    }
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+    await fixture.whenStable();
+    expect(gotoObject).toHaveBeenCalledTimes(1);
+    expect(gotoObject).toHaveBeenCalledWith('Kepler-11', expect.any(Object));
+  });
+
+  it('searches the suggestion chosen with the arrow keys once on Enter', async () => {
+    gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    const { fixture, el } = await mount();
+    const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    input.value = 'Kepler-18';
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    const key = (k: string) =>
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: k, bubbles: true }),
+      );
+    key('ArrowDown');
+    await fixture.whenStable();
+    key('Enter');
+    await fixture.whenStable();
+    expect(gotoObject).toHaveBeenCalledTimes(1);
+    expect(gotoObject).toHaveBeenCalledWith('Kepler-18', expect.any(Object));
+  });
+
   it('stays closed after an outside click until the input is focused again', async () => {
     const { fixture, el } = await mount();
     const input = el.querySelector<HTMLInputElement>('input[role="combobox"]')!;
@@ -350,6 +398,30 @@ describe('Select', () => {
     expect(confirm).toHaveBeenCalledWith(star);
   });
 
+  it('greys the designation after a common name', async () => {
+    confirmed.set({
+      ...star,
+      display_name: 'Antares',
+      designation: 'HIP 80763',
+    });
+    const { el } = await mount();
+    expect(el.querySelector('h2')?.textContent).toContain('Antares');
+    const grey = el.querySelector('h2 [data-designation]');
+    expect(grey?.textContent?.trim()).toBe('(HIP 80763)');
+    expect(grey?.className).toContain('text-muted-foreground');
+  });
+
+  it('shows only the designation when the star has no common name', async () => {
+    confirmed.set({
+      ...star,
+      display_name: 'HIP 80763',
+      designation: 'HIP 80763',
+    });
+    const { el } = await mount();
+    expect(el.querySelector('h2')?.textContent?.trim()).toBe('HIP 80763');
+    expect(el.querySelector('[data-designation]')).toBeNull();
+  });
+
   it('loads the details of the confirmed star and shows them in the card', async () => {
     const { el } = await hit();
     expect(loadInfo).toHaveBeenCalledWith(star);
@@ -369,32 +441,69 @@ describe('Select', () => {
     expect(loadInfo).not.toHaveBeenCalled();
   });
 
-  it('ignores a target resolved before Confirm was clicked', async () => {
-    target.set(star);
+  it('ignores a star located before Confirm was clicked', async () => {
+    located.set(star);
     const { el } = await mount();
     expect(el.textContent).not.toContain('Extract lightcurve features');
     expect(confirm).not.toHaveBeenCalled();
   });
 
-  it('keeps the full sky and shows no inline error on a miss', async () => {
+  it('keeps the full sky and toasts the error when no star is found', async () => {
     const { fixture, el, zoom, button } = await mount();
     await zoom(MAX_CONFIRM_FOV_DEG / 2);
     button('Confirm star')?.click();
-    error.set(new ApiRequestError(404, 'not_found', 'No star found'));
+    locateError.set(
+      new ApiRequestError(404, 'not_found', 'No star found at that position'),
+    );
     await fixture.whenStable();
     expect(el.querySelector('h2')).toBeNull();
-    expect(el.textContent).not.toContain('No star found');
+    expect(toast.error).toHaveBeenCalledWith('No star found at that position');
     expect(confirm).not.toHaveBeenCalled();
+    expect(button('Confirm star')?.hasAttribute('disabled')).toBe(false);
   });
 
-  it('starts the extraction and moves to Download on Extract', async () => {
+  it('asks Shaula for the star only when Extract is clicked', async () => {
+    const { button } = await hit();
+    expect(resolveByPosition).not.toHaveBeenCalled();
+    button('Extract lightcurve features')?.click();
+    expect(resolveByPosition).toHaveBeenCalledWith(star.ra_deg, star.dec_deg);
+    expect(startExtract).not.toHaveBeenCalled();
+  });
+
+  it('starts the extraction with the resolved star and moves to Download', async () => {
     const navigate = vi
       .spyOn(TestBed.inject(Router), 'navigate')
       .mockResolvedValue(true);
-    const { button } = await hit();
+    const { fixture, button } = await hit();
     button('Extract lightcurve features')?.click();
+    const resolved: Target = { ...star, catalog: 'TIC' };
+    target.set(resolved);
+    await fixture.whenStable();
     expect(startExtract).toHaveBeenCalledTimes(1);
+    expect(startExtract).toHaveBeenCalledWith(false, resolved);
     expect(navigate).toHaveBeenCalledWith(['/download']);
+  });
+
+  it('shows the error and stays on the page when the star has no light curve data', async () => {
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
+    const { fixture, el, button } = await hit();
+    button('Extract lightcurve features')?.click();
+    await fixture.whenStable();
+    expect(
+      button('Extract lightcurve features')?.hasAttribute('disabled'),
+    ).toBe(true);
+    error.set(new ApiRequestError(422, 'unprocessable', 'No light curve data'));
+    await fixture.whenStable();
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain(
+      'No light curve data',
+    );
+    expect(startExtract).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(
+      button('Extract lightcurve features')?.hasAttribute('disabled'),
+    ).toBe(false);
   });
 
   it('leaves Download all data points unchecked and sends the choice on Extract', async () => {
@@ -404,11 +513,16 @@ describe('Select', () => {
     expect(el.textContent).toContain('Download all data points');
     expect(box?.getAttribute('aria-checked')).toBe('false');
     button('Extract lightcurve features')?.click();
-    expect(startExtract).toHaveBeenLastCalledWith(false);
+    target.set(star);
+    await fixture.whenStable();
+    expect(startExtract).toHaveBeenLastCalledWith(false, star);
     box?.click();
     await fixture.whenStable();
+    target.set(null);
     button('Extract lightcurve features')?.click();
-    expect(startExtract).toHaveBeenLastCalledWith(true);
+    target.set(star);
+    await fixture.whenStable();
+    expect(startExtract).toHaveBeenLastCalledWith(true, star);
   });
 
   const dialog = () =>
@@ -422,8 +536,8 @@ describe('Select', () => {
   const other: Target = { ...star, display_name: 'Kepler-2', catalog_id: '2' };
   const pick = async (page: Awaited<ReturnType<typeof hit>>) => {
     page.button('Confirm star')?.click();
-    target.set(null);
-    target.set(other);
+    located.set(null);
+    located.set(other);
     await page.fixture.whenStable();
   };
 

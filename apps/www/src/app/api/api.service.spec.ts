@@ -49,11 +49,13 @@ describe('ApiService', () => {
     expect(out).toEqual({ designation: 'x' });
   });
 
-  it('gets starInfo from the targets/info route with the query', () => {
+  it('gets starInfo from the targets/info route with the position', () => {
     const base = TestBed.inject(API_BASE_URL);
     let out: unknown;
-    api.starInfo('KIC 11442793').subscribe((v) => (out = v));
-    const req = http.expectOne(`${base}/targets/info?query=KIC%2011442793`);
+    api.starInfo(284.43, 49.3).subscribe((v) => (out = v));
+    const req = http.expectOne(
+      `${base}/targets/info?ra_deg=284.43&dec_deg=49.3`,
+    );
     expect(req.request.method).toBe('GET');
     req.flush({ star: { sources: [] } });
     expect(out).toEqual({ star: { sources: [] } });

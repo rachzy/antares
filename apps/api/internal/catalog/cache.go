@@ -57,3 +57,8 @@ func (c *Cached) Lookup(ctx context.Context, q Query) (Star, error) {
 	c.entries[q] = cacheEntry{star: star, expires: now.Add(c.TTL)}
 	return star, nil
 }
+
+// Locate asks the wrapped Source; positions are not cached since they are rarely asked twice.
+func (c *Cached) Locate(ctx context.Context, ra, dec float64) (Located, error) {
+	return c.Source.Locate(ctx, ra, dec)
+}

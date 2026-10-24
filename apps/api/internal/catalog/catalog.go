@@ -41,10 +41,24 @@ type Star struct {
 	Sources []string `json:"sources"`
 }
 
+// Located is the star nearest a sky position. Catalog and CatalogID are empty when SIMBAD knows no
+// mission catalogue entry for it.
+type Located struct {
+	Catalog     string
+	CatalogID   string
+	Designation string
+	DisplayName string
+	RA          float64
+	Dec         float64
+	Star        Star
+}
+
 // Source looks a star up. A star the services do not know yields an empty Star, not an error; an
 // error means no service could be reached.
 type Source interface {
 	Lookup(ctx context.Context, q Query) (Star, error)
+	// Locate finds the star at a position (ICRS degrees), or returns ErrNotFound.
+	Locate(ctx context.Context, ra, dec float64) (Located, error)
 }
 
 var (
@@ -55,6 +69,9 @@ var (
 // ErrBadQuery is returned for a catalogue or ID that cannot be a mission catalogue entry. It also
 // keeps the ADQL built from a Query free of injected text.
 var ErrBadQuery = errors.New("catalog: invalid catalogue entry")
+
+// ErrNotFound is returned by Locate when no object lies at the position.
+var ErrNotFound = errors.New("catalog: nothing at that position")
 
 func (q Query) validate() error {
 	switch q.Catalog {
