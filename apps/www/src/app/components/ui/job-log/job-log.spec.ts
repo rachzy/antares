@@ -99,6 +99,27 @@ describe('JobLog', () => {
     expect(lines()[0]).toBe('loaded from cache');
   });
 
+  it('shows the waiting line until the first event arrives', async () => {
+    const { fixture, lines } = await mount({
+      events: [],
+      status: 'running',
+      waiting: 'Establishing connection to Shaula...',
+    });
+    expect(lines()).toEqual(['Establishing connection to Shaula...']);
+    fixture.componentRef.setInput('events', [ev(1, 'queued')]);
+    await fixture.whenStable();
+    expect(lines()).toEqual([`${clock(at)} queued`]);
+  });
+
+  it('shows no waiting line when the job is not running', async () => {
+    const { lines } = await mount({
+      events: [],
+      status: 'idle',
+      waiting: 'Establishing connection to Shaula...',
+    });
+    expect(lines()).toEqual([]);
+  });
+
   it('scrolls to the bottom', async () => {
     const { fixture, el } = await mount({ events: [], status: 'running' });
     const box = el.querySelector<HTMLElement>('[data-log]') as HTMLElement;
