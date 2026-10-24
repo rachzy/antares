@@ -124,9 +124,19 @@ type Prediction struct {
 	SchemaVersion int
 }
 
+// RunSettings is the tuning of one model run: its decision threshold and the hyperparameters Fang
+// selected for each learner, keyed by learner name.
+type RunSettings struct {
+	RunID         string         `json:"run_id"`
+	SelectedModel string         `json:"selected_model"`
+	Threshold     float64        `json:"threshold"`
+	BestParams    map[string]any `json:"best_params"`
+}
+
 // Fang is the classification service and its registry of trained runs.
 type Fang interface {
 	Version(ctx context.Context) (string, error)
 	ListRuns(ctx context.Context) ([]Run, error)
+	RunSettings(ctx context.Context, runID string) (RunSettings, error)
 	Predict(ctx context.Context, req PredictRequest) (Prediction, error)
 }

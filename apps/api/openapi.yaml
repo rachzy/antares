@@ -172,6 +172,32 @@ paths:
         '503':
           $ref: '#/components/responses/Unavailable'
 
+  /ml/runs/{run_id}/hyperparameters:
+    get:
+      tags: [ml]
+      operationId: getRunHyperparameters
+      summary: Get a model run's tuning
+      description: The decision threshold and the hyperparameters selected for each learner of the run.
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The run's tuning.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunHyperparameters'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
   /ml/predict:
     post:
       tags: [ml]
@@ -656,6 +682,31 @@ components:
           schema_version: 1,
           selected_model: stack,
           threshold: 0.5,
+        }
+
+    RunHyperparameters:
+      type: object
+      required: [run_id, selected_model, threshold, best_params]
+      properties:
+        run_id:
+          type: string
+        selected_model:
+          type: string
+        threshold:
+          type: number
+          format: double
+        best_params:
+          type: object
+          description: Hyperparameters per learner (for example `lightgbm`, `catboost`, `extra_trees`, `meta`).
+          additionalProperties:
+            type: object
+            additionalProperties: true
+      example:
+        {
+          run_id: '20260901T120000Z-abcd1234',
+          selected_model: lightgbm,
+          threshold: 0.5,
+          best_params: { lightgbm: { n_estimators: 300, learning_rate: 0.05 } },
         }
 
     PredictResult:

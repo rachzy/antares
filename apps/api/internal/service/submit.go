@@ -239,6 +239,21 @@ func (s *Service) Runs(ctx context.Context) ([]upstream.Run, error) {
 	return sorted, nil
 }
 
+// RunSettings returns the tuning of the model run runID, or of the newest run when runID is empty.
+func (s *Service) RunSettings(ctx context.Context, runID string) (upstream.RunSettings, error) {
+	run, err := s.pickRun(ctx, runID)
+	if err != nil {
+		return upstream.RunSettings{}, err
+	}
+	rctx, cancel := context.WithTimeout(ctx, listRunsTimeout)
+	defer cancel()
+	settings, err := s.Fang.RunSettings(rctx, run.RunID)
+	if err != nil {
+		return upstream.RunSettings{}, s.fromUpstream("model", err)
+	}
+	return settings, nil
+}
+
 func (s *Service) pickRun(ctx context.Context, wanted string) (upstream.Run, error) {
 	runs, err := s.Runs(ctx)
 	if err != nil {
