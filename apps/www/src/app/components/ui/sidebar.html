@@ -38,23 +38,30 @@
     <a
       routerLink="/"
       [attr.aria-current]="section() === 'sky' && url() === '/' ? 'page' : null"
-      class="hover:bg-accent flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm"
+      class="transition-colors duration-200 motion-reduce:transition-none hover:bg-accent relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm"
       [class.bg-accent]="section() === 'sky'"
       [class.font-medium]="section() === 'sky'"
     >
+      <span
+        aria-hidden="true"
+        class="bg-primary absolute inset-y-2 left-0 w-[3px] origin-center rounded-full transition-transform duration-300 ease-out motion-reduce:transition-none"
+        [class.scale-y-0]="!section() === 'sky'"
+        [class.scale-y-100]="section() === 'sky'"
+      ></span>
       <ng-icon name="lucideTelescope" size="20" />
       <span class="flex-1">Sky</span>
       <ng-icon
-        class="text-muted-foreground"
+        class="text-muted-foreground transition-transform duration-300 motion-reduce:transition-none"
         size="14"
-        [name]="
-          section() === 'sky' ? 'lucideChevronDown' : 'lucideChevronRight'
-        "
+        name="lucideChevronRight"
+        [class.rotate-90]="section() === 'sky'"
       />
     </a>
     @if (section() === 'sky') {
       <ul
         data-pipeline
+        animate.enter="an-expand"
+        animate.leave="an-collapse"
         class="border-border mt-0.5 mb-1.5 ml-6 flex flex-col gap-0.5 border-l-[1.5px] pl-3.5"
       >
         <li
@@ -86,7 +93,7 @@
                 [attr.data-state]="step.state"
                 [routerLink]="['/', step.id]"
                 [attr.aria-current]="step.state === 'current' ? 'step' : null"
-                class="hover:bg-accent focus-visible:ring-ring/50 flex min-h-11 items-center gap-2.5 rounded-lg px-2 text-sm outline-none focus-visible:ring-[3px]"
+                class="transition-colors duration-200 motion-reduce:transition-none hover:bg-accent focus-visible:ring-ring/50 flex min-h-11 items-center gap-2.5 rounded-lg px-2 text-sm outline-none focus-visible:ring-[3px]"
                 [class.bg-accent]="step.state === 'current'"
                 [class.text-muted-foreground]="
                   step.state !== 'current' && step.state !== 'open'
@@ -106,23 +113,30 @@
     <!-- Classification Model -->
     <a
       routerLink="/model/hyperparameters"
-      class="hover:bg-accent flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm"
+      class="transition-colors duration-200 motion-reduce:transition-none hover:bg-accent relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm"
       [class.bg-accent]="section() === 'model'"
       [class.font-medium]="section() === 'model'"
     >
+      <span
+        aria-hidden="true"
+        class="bg-primary absolute inset-y-2 left-0 w-[3px] origin-center rounded-full transition-transform duration-300 ease-out motion-reduce:transition-none"
+        [class.scale-y-0]="!section() === 'model'"
+        [class.scale-y-100]="section() === 'model'"
+      ></span>
       <ng-icon name="lucideLayers" size="20" />
       <span class="flex-1">Classification Model</span>
       <ng-icon
-        class="text-muted-foreground"
+        class="text-muted-foreground transition-transform duration-300 motion-reduce:transition-none"
         size="14"
-        [name]="
-          section() === 'model' ? 'lucideChevronDown' : 'lucideChevronRight'
-        "
+        name="lucideChevronRight"
+        [class.rotate-90]="section() === 'model'"
       />
     </a>
     @if (section() === 'model') {
       <ul
         data-model-pages
+        animate.enter="an-expand"
+        animate.leave="an-collapse"
         class="border-border mt-0.5 mb-1.5 ml-6 flex flex-col gap-0.5 border-l-[1.5px] pl-3.5"
       >
         @for (page of modelPages; track page.path) {
@@ -130,12 +144,12 @@
             <a
               [routerLink]="page.path"
               [attr.aria-current]="isModelPage(page.path) ? 'page' : null"
-              class="hover:bg-accent flex min-h-11 items-center gap-2.5 rounded-lg px-2 text-sm"
+              class="transition-colors duration-200 motion-reduce:transition-none hover:bg-accent flex min-h-11 items-center gap-2.5 rounded-lg px-2 text-sm"
               [class.bg-accent]="isModelPage(page.path)"
               [class.text-muted-foreground]="!isModelPage(page.path)"
             >
               <span
-                class="grid size-7 shrink-0 place-items-center rounded-lg border-[1.5px]"
+                class="grid size-7 shrink-0 place-items-center rounded-lg border-[1.5px] transition-colors duration-300 motion-reduce:transition-none"
                 [class.border-primary]="isModelPage(page.path)"
                 [class.text-primary]="isModelPage(page.path)"
                 [class.border-border]="!isModelPage(page.path)"
@@ -153,10 +167,16 @@
     <a
       routerLink="/api"
       [attr.aria-current]="section() === 'api' ? 'page' : null"
-      class="hover:bg-accent flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm"
+      class="transition-colors duration-200 motion-reduce:transition-none hover:bg-accent relative flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm"
       [class.bg-accent]="section() === 'api'"
       [class.font-medium]="section() === 'api'"
     >
+      <span
+        aria-hidden="true"
+        class="bg-primary absolute inset-y-2 left-0 w-[3px] origin-center rounded-full transition-transform duration-300 ease-out motion-reduce:transition-none"
+        [class.scale-y-0]="!section() === 'api'"
+        [class.scale-y-100]="section() === 'api'"
+      ></span>
       <ng-icon name="lucideCode" size="20" />
       API
     </a>
@@ -171,7 +191,7 @@
 
 <ng-template #stepContent let-step>
   <span
-    class="grid size-7 shrink-0 place-items-center rounded-lg border-[1.5px]"
+    class="grid size-7 shrink-0 place-items-center rounded-lg border-[1.5px] transition-colors duration-300 motion-reduce:transition-none"
     [class.border-primary]="step.state === 'current' || step.state === 'open'"
     [class.text-primary]="step.state === 'current' || step.state === 'open'"
     [class.border-border]="step.state === 'done' || step.state === 'locked'"
@@ -188,7 +208,7 @@
         data-unlocked
         name="lucideLockOpen"
         size="15"
-        class="text-primary"
+        class="text-primary an-expand"
         aria-label="Unlocked"
       />
     }
