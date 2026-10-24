@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, throwError } from 'rxjs';
+import { Observable, catchError, map, throwError } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { API_ROUTES } from './api.routes';
 import type {
@@ -13,6 +13,8 @@ import type {
   PredictResult,
   ResolveRequest,
   Run,
+  RunDataset,
+  RunHyperparameters,
   SubscriptionEvent,
   SubscriptionView,
   StarInfo,
@@ -71,7 +73,17 @@ export class ApiService {
   }
 
   listRuns(): Observable<Run[]> {
-    return this.get<Run[]>(API_ROUTES.listRuns);
+    return this.get<{ runs: Run[] }>(API_ROUTES.listRuns).pipe(
+      map((body) => body.runs),
+    );
+  }
+
+  runHyperparameters(runId: string): Observable<RunHyperparameters> {
+    return this.get<RunHyperparameters>(API_ROUTES.runHyperparameters(runId));
+  }
+
+  runDataset(runId: string): Observable<RunDataset> {
+    return this.get<RunDataset>(API_ROUTES.runDataset(runId));
   }
 
   predict(body: PredictRequest): Observable<PredictResult> {

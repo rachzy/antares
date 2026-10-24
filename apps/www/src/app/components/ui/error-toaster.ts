@@ -9,6 +9,7 @@ import { HlmToaster } from '@spartan-ng/helm/sonner';
 import { ApiRequestError } from '../../api/api.service';
 import { HealthStore } from '../../stores/health.store';
 import { MlStore } from '../../stores/ml.store';
+import { ModelStore } from '../../stores/model.store';
 import { PipelineStore } from '../../stores/pipeline.store';
 import { RunStore } from '../../stores/run.store';
 import { TargetStore } from '../../stores/target.store';
@@ -24,6 +25,7 @@ export class ErrorToaster {
   private readonly pipeline = inject(PipelineStore);
   private readonly health = inject(HealthStore);
   private readonly ml = inject(MlStore);
+  private readonly model = inject(ModelStore);
   private readonly run = inject(RunStore);
   private readonly shown = new WeakSet<ApiRequestError>();
 
@@ -35,6 +37,7 @@ export class ErrorToaster {
         this.pipeline.error(),
         this.health.error(),
         this.ml.error(),
+        this.model.error(),
         this.run.extract().error,
         this.run.score().error,
       ];
