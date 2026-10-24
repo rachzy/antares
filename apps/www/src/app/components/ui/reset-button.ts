@@ -15,12 +15,13 @@ import { TargetStore } from '../../stores/target.store';
       <button
         hlmBtn
         variant="outline"
-        size="xs"
+        size="icon"
         type="button"
+        aria-label="Reset"
+        title="Reset"
         (click)="reset()"
       >
         <ng-icon name="lucideRotateCcw" />
-        Reset
       </button>
     }
   `,

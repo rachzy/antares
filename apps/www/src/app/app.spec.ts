@@ -4,6 +4,7 @@ import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
 import { appRoutes } from './app.routes';
 import { ErrorToaster } from './components/ui/error-toaster';
+import { Shell } from './components/pages/shell/shell';
 import { Welcome } from './components/pages/welcome/welcome';
 import { HealthStore } from './stores/health.store';
 import { RunStore } from './stores/run.store';
@@ -54,11 +55,25 @@ describe('App', () => {
 });
 
 describe('appRoutes', () => {
-  it('routes the empty path to Welcome', async () => {
+  it('wraps every page in the shell', async () => {
     const [route] = appRoutes;
     expect(route.path).toBe('');
-    const loadComponent = route.loadComponent as () => Promise<typeof Welcome>;
+    const loadComponent = route.loadComponent as () => Promise<typeof Shell>;
+    await expect(loadComponent()).resolves.toBe(Shell);
+  });
+
+  it('routes the empty path to Welcome', async () => {
+    const welcome = appRoutes[0].children?.[0];
+    expect(welcome?.path).toBe('');
+    const loadComponent = welcome?.loadComponent as () => Promise<
+      typeof Welcome
+    >;
     await expect(loadComponent()).resolves.toBe(Welcome);
+  });
+
+  it('routes the model and api pages', () => {
+    const children = appRoutes[0].children ?? [];
+    expect(children.map((r) => r.path)).toEqual(['', '', 'model', 'api', '**']);
   });
 
   it('sends unknown urls to the welcome page', async () => {

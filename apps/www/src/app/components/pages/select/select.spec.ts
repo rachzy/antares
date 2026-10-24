@@ -1,7 +1,12 @@
 import { ApplicationRef, computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter, Router } from '@angular/router';
+import {
+  ActivatedRoute,
+  convertToParamMap,
+  provideRouter,
+  Router,
+} from '@angular/router';
 import { toast } from '@spartan-ng/brain/sonner';
 import { ApiRequestError } from '../../../api/api.service';
 import type { StarDetails, Target } from '../../../api/api.types';
@@ -263,6 +268,23 @@ describe('Select', () => {
     expect(options).toContain('Kepler-186');
     expect(options).toContain('Kepler-1866');
     expect(options).not.toContain('Kepler-118');
+  });
+
+  it('flies to the star named in the q query parameter once the sky is ready', async () => {
+    gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    TestBed.overrideProvider(ActivatedRoute, {
+      useValue: {
+        snapshot: { queryParamMap: convertToParamMap({ q: 'Kepler-186' }) },
+      },
+    });
+    const { el } = await mount();
+    await vi.waitFor(() =>
+      expect(gotoObject).toHaveBeenCalledWith('Kepler-186', expect.any(Object)),
+    );
+    expect(gotoObject).toHaveBeenCalledTimes(1);
+    expect(
+      el.querySelector<HTMLInputElement>('input[role="combobox"]')?.value,
+    ).toBe('Kepler-186');
   });
 
   it('searches the sky when a suggestion is picked', async () => {

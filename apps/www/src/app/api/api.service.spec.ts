@@ -81,6 +81,26 @@ describe('ApiService', () => {
     expect(err).toBeInstanceOf(ApiRequestError);
   });
 
+  it('unwraps the run list', () => {
+    const base = TestBed.inject(API_BASE_URL);
+    let out: unknown;
+    api.listRuns().subscribe((v) => (out = v));
+    http.expectOne(`${base}/ml/runs`).flush({ runs: [{ run_id: 'a' }] });
+    expect(out).toEqual([{ run_id: 'a' }]);
+  });
+
+  it('gets the hyperparameters and the dataset of a run', () => {
+    const base = TestBed.inject(API_BASE_URL);
+    const seen: unknown[] = [];
+    api.runHyperparameters('r/1').subscribe((v) => seen.push(v));
+    api.runDataset('r/1').subscribe((v) => seen.push(v));
+    http
+      .expectOne(`${base}/ml/runs/r%2F1/hyperparameters`)
+      .flush({ run_id: 'h' });
+    http.expectOne(`${base}/ml/runs/r%2F1/dataset`).flush({ run_id: 'd' });
+    expect(seen).toEqual([{ run_id: 'h' }, { run_id: 'd' }]);
+  });
+
   it('maps a network failure to unavailable', () => {
     let err: unknown;
     api.listRuns().subscribe({ error: (e) => (err = e) });

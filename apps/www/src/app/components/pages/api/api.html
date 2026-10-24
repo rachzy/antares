@@ -1,0 +1,90 @@
+<div class="mx-auto flex max-w-5xl flex-col gap-8">
+  <header>
+    <h1 class="font-serif text-4xl font-semibold">API</h1>
+    <p class="text-muted-foreground mt-3 max-w-2xl">
+      Everything the website does is available over one public API. It extracts
+      features from a star's light curve with Shaula, and classifies them with
+      Fang. No account or key is needed.
+    </p>
+    <div class="mt-5 flex flex-wrap items-center gap-2.5 text-sm">
+      <span class="text-muted-foreground">Base URL</span>
+      <code
+        data-base
+        class="bg-card border-border rounded-lg border px-3 py-1.5 font-mono"
+        >{{ base }}</code
+      >
+      <a
+        class="border-border hover:bg-accent ml-auto inline-flex min-h-10 items-center rounded-lg border px-4"
+        [href]="base + '/docs'"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Open Swagger UI</a
+      >
+      <a
+        class="border-border hover:bg-accent inline-flex min-h-10 items-center rounded-lg border px-4"
+        [href]="base + '/openapi.yaml'"
+        target="_blank"
+        rel="noopener noreferrer"
+        >openapi.yaml</a
+      >
+    </div>
+  </header>
+
+  <ol class="flex flex-col gap-5">
+    @for (step of steps; track step.title; let i = $index) {
+      <li
+        data-step
+        class="bg-card border-border flex gap-5 rounded-xl border p-6"
+      >
+        <span
+          class="border-primary text-primary grid size-8 shrink-0 place-items-center rounded-full border-[1.5px] text-sm"
+          >{{ i < steps.length - 1 ? i + 1 : '+' }}</span
+        >
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2.5">
+            <h2 class="text-lg font-medium">{{ step.title }}</h2>
+            <span class="bg-accent rounded-full px-2.5 py-0.5 text-xs">{{
+              step.service
+            }}</span>
+          </div>
+          <p class="text-muted-foreground mt-2 text-sm leading-relaxed">
+            {{ step.text }}
+          </p>
+          <pre
+            class="bg-background border-border mt-4 overflow-x-auto rounded-lg border p-4 font-mono text-xs leading-relaxed"
+            tabindex="0"
+            >{{ step.code }}</pre>
+        </div>
+      </li>
+    }
+  </ol>
+
+  <section>
+    <h2 class="mb-3 text-lg font-medium">Endpoints</h2>
+    <div class="bg-card border-border overflow-hidden rounded-xl border">
+      <table hlmTable>
+        <tbody hlmTBody>
+          @for (e of endpoints; track e.method + e.path) {
+            <tr hlmTr data-endpoint>
+              <td hlmTd class="text-primary w-16 px-5 font-mono text-xs">
+                {{ e.method }}
+              </td>
+              <td hlmTd class="px-2 font-mono text-sm">{{ e.path }}</td>
+              <td
+                hlmTd
+                class="text-muted-foreground hidden px-2 text-sm md:table-cell"
+              >
+                {{ e.text }}
+              </td>
+              <td hlmTd class="px-5 text-right">
+                <span class="bg-accent rounded-full px-2.5 py-0.5 text-xs">{{
+                  e.service
+                }}</span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

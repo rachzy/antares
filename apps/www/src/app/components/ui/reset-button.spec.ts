@@ -35,7 +35,9 @@ describe('ResetButton', () => {
     expect(el.querySelector('button')).toBeNull();
     star.set({ display_name: 'Kepler-186' });
     await fixture.whenStable();
-    expect(el.querySelector('button')?.textContent).toContain('Reset');
+    expect(el.querySelector('button')?.getAttribute('aria-label')).toBe(
+      'Reset',
+    );
   });
 
   it('clears everything and goes back to the first step', async () => {

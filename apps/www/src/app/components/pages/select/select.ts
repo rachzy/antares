@@ -7,7 +7,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideLoader2, lucideSearch } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
@@ -47,6 +47,9 @@ export class Select {
   private readonly run = inject(RunStore);
   protected readonly starInfo = inject(StarInfoStore);
   private readonly router = inject(Router);
+  private readonly initialQuery = signal(
+    inject(ActivatedRoute).snapshot.queryParamMap.get('q'),
+  );
   private readonly sky = viewChild(SkyViewer);
   private readonly awaiting = signal(false);
   protected readonly pending = signal<Target | null>(null);
@@ -100,6 +103,15 @@ export class Select {
       } else if (error) {
         this.awaiting.set(false);
       }
+    });
+    effect(() => {
+      const q = this.initialQuery();
+      if (!q || !this.sky()?.ready()) return;
+      untracked(() => {
+        this.initialQuery.set(null);
+        this.query.set(q);
+        void this.search();
+      });
     });
     let toasted = false;
     effect(() => {

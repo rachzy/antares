@@ -1,16 +1,72 @@
-<main class="welcome">
-  <header class="welcome__intro">
-    <p class="welcome__lede" [class.welcome__lede--leaving]="brand.leaving()">
-      A tool for hunting exoplanets across the stars, watching for the faint dip
-      in starlight when a world crosses in front of its sun.
-    </p>
-  </header>
+<div class="pointer-events-none absolute inset-0" aria-hidden="true">
+  <an-sky-viewer />
+</div>
+<div class="bg-background/55 absolute inset-0" aria-hidden="true"></div>
 
-  <div class="welcome__stage">
-    <an-sky-viewer class="welcome__sky" />
+<section
+  class="bg-card/85 border-border absolute top-1/2 left-1/2 flex w-[min(35rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-5 rounded-2xl border p-6 text-center shadow-xl backdrop-blur-md sm:p-8"
+>
+  <h1 class="font-serif text-5xl leading-none font-semibold sm:text-6xl">
+    Antares
+  </h1>
+  <p
+    class="welcome-lede text-muted-foreground max-w-md text-base leading-relaxed"
+  >
+    A tool for hunting exoplanets across the stars, watching for the faint dip
+    in starlight when a world crosses in front of its sun.
+  </p>
 
-    <button type="button" class="welcome__expand" (click)="expand()">
-      <span class="welcome__expand-label">Look closer</span>
-    </button>
+  <form class="w-full text-left" (submit)="$event.preventDefault(); submit()">
+    <hlm-autocomplete
+      class="block w-full"
+      [search]="query()"
+      (searchChange)="query.set($event)"
+      (valueChange)="pick($event)"
+      [state]="suggestionsOpen() ? 'open' : 'closed'"
+      (stateChanged)="setSuggestionsState($event)"
+      [autoHighlight]="true"
+      (focusin)="openSuggestions($event)"
+      (click)="openSuggestions($event)"
+      (keydown.enter)="submit()"
+    >
+      <hlm-autocomplete-input
+        class="bg-card/90"
+        aria-label="Search for a star"
+        placeholder="Search a Kepler star to begin"
+        [showSearch]="false"
+      />
+      <ng-template hlmAutocompletePortal>
+        <hlm-autocomplete-content>
+          <hlm-autocomplete-empty>No Kepler stars match</hlm-autocomplete-empty>
+          <div hlmAutocompleteList>
+            @for (name of suggestions(); track name) {
+              <hlm-autocomplete-item [value]="name">{{
+                name
+              }}</hlm-autocomplete-item>
+            }
+          </div>
+        </hlm-autocomplete-content>
+      </ng-template>
+    </hlm-autocomplete>
+  </form>
+
+  <div class="flex flex-wrap items-center justify-center gap-2 text-sm">
+    <span class="text-muted-foreground">Try</span>
+    @for (name of examples; track name) {
+      <a
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="rounded-full"
+        routerLink="/select"
+        [queryParams]="{ q: name }"
+        >{{ name }}</a
+      >
+    }
   </div>
-</main>
+
+  <a hlmBtn routerLink="/select" class="rounded-full" data-look-closer>
+    Look closer
+    <ng-icon name="lucideArrowRight" />
+  </a>
+</section>

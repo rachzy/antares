@@ -124,6 +124,35 @@ export interface Run {
   threshold: number;
 }
 
+export interface RunHyperparameters {
+  run_id: string;
+  selected_model: string;
+  threshold: number;
+  best_params: Record<string, Record<string, unknown>>;
+}
+
+export interface ConfusionMatrix {
+  tp: number;
+  fp: number;
+  fn: number;
+  tn: number;
+  source: 'held_out' | 'cross_fit';
+}
+
+export interface RunDataset {
+  run_id: string;
+  selected_model: string;
+  n_rows: number;
+  n_stars: number;
+  n_files: number;
+  n_features: number;
+  n_positive: number;
+  n_negative: number;
+  n_unlabelled: number;
+  status_counts: Record<string, number>;
+  confusion_matrices: Record<string, ConfusionMatrix>;
+}
+
 export interface SubscriptionEvent {
   seq: number;
   type: 'state' | 'progress' | 'result' | 'error';
