@@ -6,6 +6,7 @@ declare module 'aladin-lite' {
       frame?: string,
     ): [number, number] | null | undefined;
     getFov(): [number, number];
+    setFoV(fovDeg: number): void;
     getRaDec(): [number, number];
     gotoObject(
       target: string,

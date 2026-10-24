@@ -37,7 +37,6 @@
       />
       <ng-template hlmAutocompletePortal>
         <hlm-autocomplete-content>
-          <hlm-autocomplete-empty>No Kepler stars match</hlm-autocomplete-empty>
           <div hlmAutocompleteList>
             @for (name of suggestions(); track name) {
               <hlm-autocomplete-item [value]="name">{{
