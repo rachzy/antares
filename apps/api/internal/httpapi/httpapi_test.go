@@ -28,6 +28,7 @@ type stub struct {
 	runs    func(context.Context) ([]upstream.Run, error)
 
 	runSettings func(context.Context, string) (upstream.RunSettings, error)
+	runDataset  func(context.Context, string) (upstream.RunDataset, error)
 	watch       func(context.Context, string, uint64) (*service.Watch, error)
 	status      func(context.Context, string) (service.SubscriptionView, error)
 
@@ -85,6 +86,13 @@ func (s *stub) RunSettings(ctx context.Context, runID string) (upstream.RunSetti
 		return upstream.RunSettings{}, errUnexpected
 	}
 	return s.runSettings(ctx, runID)
+}
+
+func (s *stub) RunDataset(ctx context.Context, runID string) (upstream.RunDataset, error) {
+	if s.runDataset == nil {
+		return upstream.RunDataset{}, errUnexpected
+	}
+	return s.runDataset(ctx, runID)
 }
 
 func (s *stub) Watch(ctx context.Context, token string, since uint64) (*service.Watch, error) {
@@ -280,6 +288,35 @@ func TestRunHyperparametersPassTheRunIDAndReturnTheSettings(t *testing.T) {
 		BestParams map[string]map[string]any `json:"best_params"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.RunID != "r1" || body.BestParams["lightgbm"]["n_estimators"] != float64(300) {
+		t.Fatalf("body = %s", rec.Body)
+	}
+}
+
+func TestRunDatasetPassesTheRunIDAndReturnsCountsPerModel(t *testing.T) {
+	var gotID string
+	h := handler(t, &stub{runDataset: func(_ context.Context, id string) (upstream.RunDataset, error) {
+		gotID = id
+		return upstream.RunDataset{
+			RunID: id, SelectedModel: "lightgbm", Rows: 120, Positive: 30, Negative: 90,
+			StatusCounts: map[string]int64{"accepted": 120},
+			ConfusionMatrices: map[string]upstream.ConfusionMatrix{
+				"lightgbm": {TP: 25, FP: 9, FN: 5, TN: 81, Source: "held_out"},
+				"stack":    {TP: 29, FP: 7, FN: 1, TN: 83, Source: "cross_fit"},
+			},
+		}, nil
+	}}, nil)
+	rec := do(h, "GET", "/ml/runs/r1/dataset", "")
+	if rec.Code != 200 || gotID != "r1" {
+		t.Fatalf("status %d, run %q: %s", rec.Code, gotID, rec.Body)
+	}
+	var body struct {
+		RunID    string                    `json:"run_id"`
+		Rows     int64                     `json:"n_rows"`
+		Positive int64                     `json:"n_positive"`
+		Matrices map[string]map[string]any `json:"confusion_matrices"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.RunID != "r1" || body.Rows != 120 || body.Positive != 30 ||
+		body.Matrices["lightgbm"]["tp"] != float64(25) || body.Matrices["stack"]["source"] != "cross_fit" {
 		t.Fatalf("body = %s", rec.Body)
 	}
 }

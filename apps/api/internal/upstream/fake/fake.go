@@ -119,8 +119,8 @@ func (f *Shaula) ExtractRequests() []upstream.ExtractRequest {
 
 // Fang is a fake upstream.Fang; it is safe for concurrent use. An empty LibraryVersion reports
 // "0.0.1a0" and a set VersionErr fails Version. ListRuns fails with ListRunsErr, lists nothing with
-// NoRuns, and otherwise returns Runs, or DefaultRun if Runs is nil. RunSettings fails with
-// RunSettingsErr. A nil PredictFn selects the
+// NoRuns, and otherwise returns Runs, or DefaultRun if Runs is nil. RunSettings and RunDataset fail with
+// RunSettingsErr and RunDatasetErr. A nil PredictFn selects the
 // default Predict.
 type Fang struct {
 	LibraryVersion string
@@ -129,6 +129,7 @@ type Fang struct {
 	NoRuns         bool
 	ListRunsErr    error
 	RunSettingsErr error
+	RunDatasetErr  error
 	PredictFn      func(ctx context.Context, req upstream.PredictRequest) (upstream.Prediction, error)
 
 	mu              sync.Mutex
@@ -169,6 +170,20 @@ func (f *Fang) RunSettings(_ context.Context, runID string) (upstream.RunSetting
 	return upstream.RunSettings{
 		RunID: runID, SelectedModel: "stack", Threshold: 0.5,
 		BestParams: map[string]any{"lightgbm": map[string]any{"n_estimators": float64(300)}},
+	}, nil
+}
+
+// RunDataset returns RunDatasetErr if set, otherwise placeholder counts for the requested run.
+func (f *Fang) RunDataset(_ context.Context, runID string) (upstream.RunDataset, error) {
+	if f.RunDatasetErr != nil {
+		return upstream.RunDataset{}, f.RunDatasetErr
+	}
+	return upstream.RunDataset{
+		RunID: runID, SelectedModel: "stack", Rows: 120, Stars: 40, Files: 41, Features: 36,
+		Positive: 30, Negative: 90, StatusCounts: map[string]int64{"accepted": 120},
+		ConfusionMatrices: map[string]upstream.ConfusionMatrix{
+			"stack": {TP: 28, FP: 6, FN: 2, TN: 84, Source: "held_out"},
+		},
 	}, nil
 }
 

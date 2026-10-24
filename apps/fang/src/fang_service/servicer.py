@@ -51,6 +51,55 @@ def _read_best_params(run: RunInfo) -> dict[str, Any]:
     raise ValueError(f"Run {run.run_id!r} records no best_params.")
 
 
+def _read_json_mapping(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _count_matrix(raw: Any, source: str) -> fang_pb2.ConfusionMatrix | None:
+    if not isinstance(raw, dict):
+        return None
+    try:
+        counts = {key: int(raw[key]) for key in ("tp", "fp", "fn", "tn")}
+    except (KeyError, TypeError, ValueError):
+        return None
+    return fang_pb2.ConfusionMatrix(source=source, **counts)
+
+
+def _read_dataset(run: RunInfo) -> tuple[dict[str, Any], dict[str, fang_pb2.ConfusionMatrix]]:
+    """The training dataset summary and per-model confusion counts of a run.
+
+    Read from the run's JSON sidecars so the pickled bundle is never loaded on a request path.
+    ``training_report.json`` carries the dataset and cross-fit counts; the nested evaluation's
+    pooled held-out counts, when the run has them, replace the cross-fit ones per model.
+    Raises ValueError when the report is missing or carries no dataset summary.
+    """
+    report = _read_json_mapping(run.path / "training_report.json")
+    dataset = report.get("dataset") if report else None
+    if report is None or not isinstance(dataset, dict):
+        message = f"Run {run.run_id!r} has no readable training_report.json dataset."
+        raise ValueError(message)
+
+    matrices: dict[str, fang_pb2.ConfusionMatrix] = {}
+    models = report.get("models")
+    for name, entry in models.items() if isinstance(models, dict) else ():
+        crossfit = entry.get("crossfit_metrics") if isinstance(entry, dict) else None
+        raw = crossfit.get("confusion_matrix_counts") if isinstance(crossfit, dict) else None
+        if (matrix := _count_matrix(raw, "cross_fit")) is not None:
+            matrices[str(name)] = matrix
+
+    evaluation = _read_json_mapping(run.path / "evaluation" / "metrics.json")
+    pooled = evaluation.get("pooled_metrics") if evaluation else None
+    for name, entry in pooled.items() if isinstance(pooled, dict) else ():
+        raw = entry.get("confusion_matrix_counts") if isinstance(entry, dict) else None
+        if (matrix := _count_matrix(raw, "held_out")) is not None:
+            matrices[str(name)] = matrix
+    return dataset, matrices
+
+
 class FangServicer(fang_pb2_grpc.FangServicer):
     def __init__(self, artifact_dir: Path | str) -> None:
         self._artifact_dir = Path(artifact_dir)
@@ -90,6 +139,39 @@ class FangServicer(fang_pb2_grpc.FangServicer):
             selected_model=run.selected_model,
             threshold=run.threshold,
             best_params=to_struct(best_params),
+        )
+
+    def GetRunDataset(self, request, context):
+        try:
+            run = _resolve_run(self._artifact_dir, request.run_id)
+        except FileNotFoundError as error:
+            context.abort(grpc.StatusCode.NOT_FOUND, str(error))
+
+        try:
+            dataset, matrices = _read_dataset(run)
+        except ValueError as error:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(error))
+
+        def count(key: str) -> int:
+            value = dataset.get(key)
+            return int(value) if isinstance(value, (int, float)) else 0
+
+        status_counts = dataset.get("status_counts")
+        return fang_pb2.GetRunDatasetResponse(
+            run_id=run.run_id,
+            selected_model=run.selected_model,
+            n_rows=count("n_rows"),
+            n_stars=count("n_stars"),
+            n_files=count("n_files"),
+            n_features=count("n_features"),
+            n_positive=count("n_positive"),
+            n_negative=count("n_negative"),
+            n_unlabelled=count("n_unlabelled"),
+            status_counts={
+                str(k): int(v)
+                for k, v in (status_counts.items() if isinstance(status_counts, dict) else ())
+            },
+            confusion_matrices=matrices,
         )
 
     def Predict(self, request, context):

@@ -254,6 +254,22 @@ func (s *Service) RunSettings(ctx context.Context, runID string) (upstream.RunSe
 	return settings, nil
 }
 
+// RunDataset returns the training data summary of the model run runID, or of the newest run when
+// runID is empty.
+func (s *Service) RunDataset(ctx context.Context, runID string) (upstream.RunDataset, error) {
+	run, err := s.pickRun(ctx, runID)
+	if err != nil {
+		return upstream.RunDataset{}, err
+	}
+	rctx, cancel := context.WithTimeout(ctx, listRunsTimeout)
+	defer cancel()
+	dataset, err := s.Fang.RunDataset(rctx, run.RunID)
+	if err != nil {
+		return upstream.RunDataset{}, s.fromUpstream("model", err)
+	}
+	return dataset, nil
+}
+
 func (s *Service) pickRun(ctx context.Context, wanted string) (upstream.Run, error) {
 	runs, err := s.Runs(ctx)
 	if err != nil {

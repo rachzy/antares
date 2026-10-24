@@ -195,6 +195,27 @@ func (f *fangClient) RunSettings(ctx context.Context, runID string) (RunSettings
 	}, nil
 }
 
+func (f *fangClient) RunDataset(ctx context.Context, runID string) (RunDataset, error) {
+	r, err := f.c.GetRunDataset(ctx, &fangv1.GetRunDatasetRequest{RunId: runID})
+	if err != nil {
+		return RunDataset{}, mapError(ctx, err)
+	}
+	counts := make(map[string]int64, len(r.GetStatusCounts()))
+	for status, n := range r.GetStatusCounts() {
+		counts[status] = n
+	}
+	matrices := make(map[string]ConfusionMatrix, len(r.GetConfusionMatrices()))
+	for model, m := range r.GetConfusionMatrices() {
+		matrices[model] = ConfusionMatrix{TP: m.GetTp(), FP: m.GetFp(), FN: m.GetFn(), TN: m.GetTn(), Source: m.GetSource()}
+	}
+	return RunDataset{
+		RunID: r.GetRunId(), SelectedModel: r.GetSelectedModel(),
+		Rows: r.GetNRows(), Stars: r.GetNStars(), Files: r.GetNFiles(), Features: r.GetNFeatures(),
+		Positive: r.GetNPositive(), Negative: r.GetNNegative(), Unlabelled: r.GetNUnlabelled(),
+		StatusCounts: counts, ConfusionMatrices: matrices,
+	}, nil
+}
+
 func (f *fangClient) Predict(ctx context.Context, req PredictRequest) (Prediction, error) {
 	rows, err := toStructs(req.Rows)
 	if err != nil {
