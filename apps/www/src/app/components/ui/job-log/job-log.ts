@@ -45,6 +45,7 @@ export class JobLog {
   readonly status = input<Stage['status']>('idle');
   readonly done = input<string | null>(null);
   readonly note = input<string | null>(null);
+  readonly waiting = input<string | null>(null);
 
   private readonly box = viewChild.required<ElementRef<HTMLElement>>('box');
 
@@ -59,6 +60,12 @@ export class JobLog {
       })),
   );
 
+  protected readonly waitingLine = computed(() =>
+    this.status() === 'running' && !this.lines().length && !this.note()
+      ? this.waiting()
+      : null,
+  );
+
   protected readonly finish = computed(() => {
     const done = this.done();
     if (this.status() !== 'done' || !done) return null;
@@ -69,6 +76,7 @@ export class JobLog {
   constructor() {
     afterRenderEffect(() => {
       this.lines();
+      this.waitingLine();
       this.finish();
       const el = this.box().nativeElement;
       el.scrollTop = el.scrollHeight;
