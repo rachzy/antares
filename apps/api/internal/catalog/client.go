@@ -307,14 +307,22 @@ func (c *Client) Locate(ctx context.Context, ra, dec float64) (Located, error) {
 		// Like Lookup, the archive only adds to what SIMBAD said, so its failure is not one.
 		_ = c.nasa(ctx, q, &out.Star)
 	}
-	out.DisplayName = out.Designation
-	if len(out.Star.Aliases) > 0 {
-		out.DisplayName = out.Star.Aliases[0]
+	// Without a mission entry the designation is the first catalogue name SIMBAD lists.
+	if q.Catalog == "" && len(out.Star.Aliases) > 0 {
+		out.Designation = out.Star.Aliases[0]
 	}
-	// A mission name such as Kepler-186 reads better than a survey candidate name such as KOI-571.
+	// The display name is the common name if the star has one, else a mission name such as
+	// Kepler-186 (which reads better than the candidate name KOI-571), else the designation.
+	out.DisplayName = out.Designation
 	for _, alias := range out.Star.Aliases {
 		if strings.HasPrefix(alias, "Kepler-") || strings.HasPrefix(alias, "K2-") || strings.HasPrefix(alias, "TOI-") {
 			out.DisplayName = alias
+			break
+		}
+	}
+	for _, id := range ids {
+		if name, ok := strings.CutPrefix(cleanID(id), "NAME "); ok && name != "" {
+			out.DisplayName = name
 			break
 		}
 	}

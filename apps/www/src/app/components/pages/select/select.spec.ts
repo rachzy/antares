@@ -360,6 +360,30 @@ describe('Select', () => {
     expect(confirm).toHaveBeenCalledWith(star);
   });
 
+  it('greys the designation after a common name', async () => {
+    confirmed.set({
+      ...star,
+      display_name: 'Antares',
+      designation: 'HIP 80763',
+    });
+    const { el } = await mount();
+    expect(el.querySelector('h2')?.textContent).toContain('Antares');
+    const grey = el.querySelector('h2 [data-designation]');
+    expect(grey?.textContent?.trim()).toBe('(HIP 80763)');
+    expect(grey?.className).toContain('text-muted-foreground');
+  });
+
+  it('shows only the designation when the star has no common name', async () => {
+    confirmed.set({
+      ...star,
+      display_name: 'HIP 80763',
+      designation: 'HIP 80763',
+    });
+    const { el } = await mount();
+    expect(el.querySelector('h2')?.textContent?.trim()).toBe('HIP 80763');
+    expect(el.querySelector('[data-designation]')).toBeNull();
+  });
+
   it('loads the details of the confirmed star and shows them in the card', async () => {
     const { el } = await hit();
     expect(loadInfo).toHaveBeenCalledWith(star);

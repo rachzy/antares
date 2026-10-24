@@ -77,6 +77,10 @@ export class Select {
       !this.awaiting() &&
       !this.sky()?.loadError(),
   );
+  protected readonly designation = computed(() => {
+    const star = this.star();
+    return star ? star.designation || `${star.catalog} ${star.catalog_id}` : '';
+  });
   protected readonly catalogUrl = computed(() => {
     const star = this.star();
     return star ? simbadUrl(star) : '';

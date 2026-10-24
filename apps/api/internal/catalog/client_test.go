@@ -250,7 +250,7 @@ func TestLocateWorksForAStarWithoutAMissionEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Catalog != "" || got.CatalogID != "" || got.Designation != "16 Cyg B" || got.DisplayName != "HD 186427" {
+	if got.Catalog != "" || got.CatalogID != "" || got.Designation != "HD 186427" || got.DisplayName != "HD 186427" {
 		t.Errorf("located = %+v", got)
 	}
 	if got.Star.SpectralType != "G3V" || len(got.Star.Planets) != 0 {
@@ -277,4 +277,20 @@ func TestLocateFailsWhenSimbadIsDown(t *testing.T) {
 
 func (c *counting) Locate(context.Context, float64, float64) (catalog.Located, error) {
 	return catalog.Located{}, catalog.ErrNotFound
+}
+
+func TestLocateNamesAStarByItsCommonNameAndKeepsTheDesignation(t *testing.T) {
+	simbad := locateServer(t, `{"data": [[9, "* alf Sco", 247.35, -26.43, "M1Ib", "s*r", 5.9]]}`,
+		`{"data": [["* alf Sco"], ["HIP 80763"], ["HD 148478"], ["NAME Antares"]]}`)
+	defer simbad.Close()
+	nasa := nasaServer(t, nil)
+	defer nasa.Close()
+
+	got, err := catalog.NewClient(simbad.URL, nasa.URL).Locate(context.Background(), 247.35, -26.43)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DisplayName != "Antares" || got.Designation != "HIP 80763" {
+		t.Errorf("display %q, designation %q", got.DisplayName, got.Designation)
+	}
 }
