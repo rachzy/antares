@@ -59,7 +59,7 @@ export class SkyViewer {
     return new Promise((resolve) =>
       aladin.gotoObject(query, {
         success: () => {
-          if (zoomFovDeg !== undefined) aladin.setFov(zoomFovDeg);
+          if (zoomFovDeg !== undefined) aladin.setFoV(zoomFovDeg);
           resolve(true);
         },
         error: () => resolve(false),

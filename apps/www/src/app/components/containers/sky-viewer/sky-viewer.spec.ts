@@ -22,7 +22,7 @@ vi.mock('aladin-lite', () => ({
         getFov: getFovMock,
         getRaDec: getRaDecMock,
         gotoObject: gotoObjectMock,
-        setFov: setFovMock,
+        setFoV: setFovMock,
         on: (event: string, cb: () => void) => callbacks.set(event, cb),
       };
     },
