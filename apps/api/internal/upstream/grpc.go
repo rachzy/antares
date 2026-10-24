@@ -182,6 +182,19 @@ func (f *fangClient) ListRuns(ctx context.Context) ([]Run, error) {
 	return runs, nil
 }
 
+func (f *fangClient) RunSettings(ctx context.Context, runID string) (RunSettings, error) {
+	r, err := f.c.GetRunSettings(ctx, &fangv1.GetRunSettingsRequest{RunId: runID})
+	if err != nil {
+		return RunSettings{}, mapError(ctx, err)
+	}
+	return RunSettings{
+		RunID:         r.GetRunId(),
+		SelectedModel: r.GetSelectedModel(),
+		Threshold:     r.GetThreshold(),
+		BestParams:    r.GetBestParams().AsMap(),
+	}, nil
+}
+
 func (f *fangClient) Predict(ctx context.Context, req PredictRequest) (Prediction, error) {
 	rows, err := toStructs(req.Rows)
 	if err != nil {

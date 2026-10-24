@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 import grpc
 from antares.fang.v1 import fang_pb2, fang_pb2_grpc
@@ -33,6 +35,22 @@ def _resolve_run(artifact_dir: Path, run_id: str) -> RunInfo:
     return latest_run(artifact_dir)
 
 
+def _read_best_params(run: RunInfo) -> dict[str, Any]:
+    """The tuned hyperparameters recorded in the run's ``summary.json``.
+
+    Read from the sidecar so the pickled bundle is never loaded on a request path.
+    Raises ValueError when the file is missing or does not carry them.
+    """
+    try:
+        summary = json.loads((run.path / "summary.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise ValueError(f"Run {run.run_id!r} has no readable summary.json.") from error
+    best_params = summary.get("best_params") if isinstance(summary, dict) else None
+    if isinstance(best_params, dict):
+        return best_params
+    raise ValueError(f"Run {run.run_id!r} records no best_params.")
+
+
 class FangServicer(fang_pb2_grpc.FangServicer):
     def __init__(self, artifact_dir: Path | str) -> None:
         self._artifact_dir = Path(artifact_dir)
@@ -55,6 +73,24 @@ class FangServicer(fang_pb2_grpc.FangServicer):
             for run in list_runs(self._artifact_dir)
         ]
         return fang_pb2.ListRunsResponse(runs=runs)
+
+    def GetRunSettings(self, request, context):
+        try:
+            run = _resolve_run(self._artifact_dir, request.run_id)
+        except FileNotFoundError as error:
+            context.abort(grpc.StatusCode.NOT_FOUND, str(error))
+
+        try:
+            best_params = _read_best_params(run)
+        except ValueError as error:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(error))
+
+        return fang_pb2.GetRunSettingsResponse(
+            run_id=run.run_id,
+            selected_model=run.selected_model,
+            threshold=run.threshold,
+            best_params=to_struct(best_params),
+        )
 
     def Predict(self, request, context):
         rows = [from_struct(item) for item in request.features]

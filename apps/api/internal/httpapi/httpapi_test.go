@@ -26,8 +26,10 @@ type stub struct {
 	analyze func(context.Context, service.ExtractInput) (service.Outcome, error)
 	predict func(context.Context, service.PredictInput) (service.PredictResult, error)
 	runs    func(context.Context) ([]upstream.Run, error)
-	watch   func(context.Context, string, uint64) (*service.Watch, error)
-	status  func(context.Context, string) (service.SubscriptionView, error)
+
+	runSettings func(context.Context, string) (upstream.RunSettings, error)
+	watch       func(context.Context, string, uint64) (*service.Watch, error)
+	status      func(context.Context, string) (service.SubscriptionView, error)
 
 	latestFeatures        func(context.Context, service.ResolveInput) (service.FeaturesView, error)
 	latestFeaturesByToken func(context.Context, string) (service.FeaturesView, error)
@@ -76,6 +78,13 @@ func (s *stub) Runs(ctx context.Context) ([]upstream.Run, error) {
 		return nil, errUnexpected
 	}
 	return s.runs(ctx)
+}
+
+func (s *stub) RunSettings(ctx context.Context, runID string) (upstream.RunSettings, error) {
+	if s.runSettings == nil {
+		return upstream.RunSettings{}, errUnexpected
+	}
+	return s.runSettings(ctx, runID)
 }
 
 func (s *stub) Watch(ctx context.Context, token string, since uint64) (*service.Watch, error) {
@@ -250,6 +259,28 @@ func TestServiceErrorsMapToStatusCodes(t *testing.T) {
 		if tc.name == "busy" && rec.Header().Get("Retry-After") != "30" {
 			t.Errorf("busy must carry Retry-After: 30, got %q", rec.Header().Get("Retry-After"))
 		}
+	}
+}
+
+func TestRunHyperparametersPassTheRunIDAndReturnTheSettings(t *testing.T) {
+	var gotID string
+	h := handler(t, &stub{runSettings: func(_ context.Context, id string) (upstream.RunSettings, error) {
+		gotID = id
+		return upstream.RunSettings{
+			RunID: id, SelectedModel: "lightgbm", Threshold: 0.42,
+			BestParams: map[string]any{"lightgbm": map[string]any{"n_estimators": 300}},
+		}, nil
+	}}, nil)
+	rec := do(h, "GET", "/ml/runs/r1/hyperparameters", "")
+	if rec.Code != 200 || gotID != "r1" {
+		t.Fatalf("status %d, run %q: %s", rec.Code, gotID, rec.Body)
+	}
+	var body struct {
+		RunID      string                    `json:"run_id"`
+		BestParams map[string]map[string]any `json:"best_params"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.RunID != "r1" || body.BestParams["lightgbm"]["n_estimators"] != float64(300) {
+		t.Fatalf("body = %s", rec.Body)
 	}
 }
 

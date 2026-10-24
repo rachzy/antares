@@ -119,7 +119,8 @@ func (f *Shaula) ExtractRequests() []upstream.ExtractRequest {
 
 // Fang is a fake upstream.Fang; it is safe for concurrent use. An empty LibraryVersion reports
 // "0.0.1a0" and a set VersionErr fails Version. ListRuns fails with ListRunsErr, lists nothing with
-// NoRuns, and otherwise returns Runs, or DefaultRun if Runs is nil. A nil PredictFn selects the
+// NoRuns, and otherwise returns Runs, or DefaultRun if Runs is nil. RunSettings fails with
+// RunSettingsErr. A nil PredictFn selects the
 // default Predict.
 type Fang struct {
 	LibraryVersion string
@@ -127,6 +128,7 @@ type Fang struct {
 	Runs           []upstream.Run
 	NoRuns         bool
 	ListRunsErr    error
+	RunSettingsErr error
 	PredictFn      func(ctx context.Context, req upstream.PredictRequest) (upstream.Prediction, error)
 
 	mu              sync.Mutex
@@ -156,6 +158,18 @@ func (f *Fang) ListRuns(context.Context) ([]upstream.Run, error) {
 		return f.Runs, nil
 	}
 	return []upstream.Run{DefaultRun()}, nil
+}
+
+// RunSettings returns RunSettingsErr if set, otherwise the settings of the requested run with
+// placeholder hyperparameters.
+func (f *Fang) RunSettings(_ context.Context, runID string) (upstream.RunSettings, error) {
+	if f.RunSettingsErr != nil {
+		return upstream.RunSettings{}, f.RunSettingsErr
+	}
+	return upstream.RunSettings{
+		RunID: runID, SelectedModel: "stack", Threshold: 0.5,
+		BestParams: map[string]any{"lightgbm": map[string]any{"n_estimators": float64(300)}},
+	}, nil
 }
 
 // Predict records req and delegates to PredictFn; by default it copies each row and adds prob_stack

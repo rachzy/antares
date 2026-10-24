@@ -58,6 +58,15 @@ func (a *API) runs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"runs": runs})
 }
 
+func (a *API) runHyperparameters(w http.ResponseWriter, r *http.Request) {
+	settings, err := a.be.RunSettings(r.Context(), r.PathValue("run_id"))
+	if err != nil {
+		a.writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, settings)
+}
+
 type predictRequest struct {
 	Features []map[string]any `json:"features"`
 	RunID    string           `json:"run_id"`
