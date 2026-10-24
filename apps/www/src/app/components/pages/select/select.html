@@ -30,9 +30,15 @@
       />
       Download all data points
     </label>
-    <button hlmBtn type="button" (click)="extract()">
+    <button hlmBtn type="button" [disabled]="resolving()" (click)="extract()">
+      @if (resolving()) {
+        <ng-icon data-spinner name="lucideLoader2" class="animate-spin" />
+      }
       Extract lightcurve features
     </button>
+    @if (extractError(); as message) {
+      <p role="alert" class="text-destructive text-sm">{{ message }}</p>
+    }
   </section>
 }
 <div class="relative min-h-64 min-w-0 flex-1 overflow-hidden rounded-xl">
@@ -89,7 +95,7 @@
     class="bg-card/90 absolute bottom-14 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 rounded-xl p-3.5 shadow-sm backdrop-blur-sm"
   >
     <button hlmBtn type="button" [disabled]="!canConfirm()" (click)="confirm()">
-      @if (resolving()) {
+      @if (locating()) {
         <ng-icon data-spinner name="lucideLoader2" class="animate-spin" />
       }
       Confirm star
@@ -101,10 +107,7 @@
     }
   </div>
 </div>
-<hlm-alert-dialog
-  [state]="pending() ? 'open' : 'closed'"
-  (closed)="pending.set(null)"
->
+<hlm-alert-dialog [state]="pending() ? 'open' : 'closed'" (closed)="keep()">
   <hlm-alert-dialog-content *hlmAlertDialogPortal>
     <hlm-alert-dialog-header>
       <h2 hlmAlertDialogTitle>Replace the star?</h2>

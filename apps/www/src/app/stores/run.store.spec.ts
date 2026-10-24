@@ -171,6 +171,14 @@ describe('RunStore', () => {
     expect(store.extract().status).toBe('running');
   });
 
+  it('startExtract adopts the star Shaula resolved', () => {
+    const store = setup();
+    store.confirm({ ...star, catalog: '', catalog_id: '' });
+    store.startExtract(false, { ...star, catalog: 'TIC' });
+    expect(store.star()?.catalog).toBe('TIC');
+    expect(extract).toHaveBeenLastCalledWith({ ...body, mission: 'TESS' });
+  });
+
   it('startExtract sends download_all and keeps it for the score run', () => {
     const store = setup();
     store.confirm(star);

@@ -52,6 +52,7 @@ export class Select {
   );
   private readonly sky = viewChild(SkyViewer);
   private readonly awaiting = signal(false);
+  private readonly extracting = signal(false);
   protected readonly pending = signal<Target | null>(null);
   private closedAt = 0;
   protected readonly query = signal('');
@@ -61,7 +62,9 @@ export class Select {
     suggestKeplerStars(this.query()),
   );
   protected readonly downloadAll = signal(false);
-  protected readonly resolving = this.targets.loading;
+  protected readonly locating = this.awaiting;
+  protected readonly resolving = this.extracting;
+  protected readonly extractError = signal<string | null>(null);
 
   protected readonly star = this.run.star;
   protected readonly tooWide = computed(
@@ -71,7 +74,7 @@ export class Select {
     () =>
       !!this.sky() &&
       !this.tooWide() &&
-      !this.targets.loading() &&
+      !this.awaiting() &&
       !this.sky()?.loadError(),
   );
   protected readonly catalogUrl = computed(() => {
@@ -82,13 +85,15 @@ export class Select {
   constructor() {
     effect(() => {
       const star = this.star();
-      untracked(() =>
-        star ? this.starInfo.load(star) : this.starInfo.reset(),
-      );
+      untracked(() => {
+        this.extractError.set(null);
+        if (star) this.starInfo.load(star);
+        else this.starInfo.reset();
+      });
     });
     effect(() => {
-      const target = this.targets.target();
-      const error = this.targets.error();
+      const target = this.starInfo.target();
+      const error = this.starInfo.error();
       if (!untracked(this.awaiting)) return;
       if (target) {
         this.awaiting.set(false);
@@ -102,6 +107,22 @@ export class Select {
         });
       } else if (error) {
         this.awaiting.set(false);
+        untracked(() => toast.error(error.message));
+      }
+    });
+    effect(() => {
+      const target = this.targets.target();
+      const error = this.targets.error();
+      if (!untracked(this.extracting)) return;
+      if (target) {
+        this.extracting.set(false);
+        untracked(() => {
+          this.run.startExtract(this.downloadAll(), target);
+          void this.router.navigate(['/download']);
+        });
+      } else if (error) {
+        this.extracting.set(false);
+        this.extractError.set(error.message);
       }
     });
     effect(() => {
@@ -121,6 +142,12 @@ export class Select {
     });
   }
 
+  protected keep(): void {
+    this.pending.set(null);
+    const star = this.star();
+    if (star) this.starInfo.load(star);
+  }
+
   protected replace(): void {
     const target = this.pending();
     this.pending.set(null);
@@ -131,7 +158,7 @@ export class Select {
     const center = this.sky()?.center();
     if (!center) return;
     this.awaiting.set(true);
-    this.targets.resolveByPosition(center[0], center[1]);
+    this.starInfo.locate(center[0], center[1]);
   }
 
   protected setSuggestionsState(state: string): void {
@@ -165,8 +192,12 @@ export class Select {
     if (!found) toast.error(`No object named "${query}" found`);
   }
 
+  // Shaula is only asked now, so a star without light curve data fails here rather than on Confirm.
   protected extract(): void {
-    this.run.startExtract(this.downloadAll());
-    void this.router.navigate(['/download']);
+    const star = this.star();
+    if (!star || this.extracting()) return;
+    this.extractError.set(null);
+    this.extracting.set(true);
+    this.targets.resolveByPosition(star.ra_deg, star.dec_deg);
   }
 }

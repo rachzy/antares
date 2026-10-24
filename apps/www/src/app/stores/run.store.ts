@@ -324,8 +324,12 @@ export const RunStore = signalStore(
           patchState(store, { star });
           persist();
         },
-        startExtract: (downloadAll = false) => {
-          patchState(store, { score: idle, downloadAll });
+        startExtract: (downloadAll = false, resolved?: Target) => {
+          patchState(store, {
+            score: idle,
+            downloadAll,
+            ...(resolved ? { star: resolved } : {}),
+          });
           run('extract');
         },
         startScore: () => {
