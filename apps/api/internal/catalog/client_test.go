@@ -197,3 +197,79 @@ func TestCachedRemembersSuccessesUntilTheyExpire(t *testing.T) {
 		t.Fatalf("source calls after expiry = %d, want 3", got)
 	}
 }
+
+// locateServer answers the cone search and the follow-up queries of a position lookup.
+func locateServer(t *testing.T, cone, aliases string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		q := r.PostForm.Get("QUERY")
+		switch {
+		case strings.Contains(q, "CONTAINS"):
+			_, _ = w.Write([]byte(cone))
+		case strings.Contains(q, "FROM ident"):
+			_, _ = w.Write([]byte(aliases))
+		case strings.Contains(q, "FROM flux"):
+			_, _ = w.Write([]byte(kepler90Flux))
+		default:
+			http.Error(w, "unexpected query "+q, http.StatusBadRequest)
+		}
+	}))
+}
+
+func TestLocateFindsTheNearestStarAndItsMissionEntry(t *testing.T) {
+	simbad := locateServer(t, `{"data": [[1234, "* Kepler-90", 284.43, 49.30, "G0V", "*", 1.2]]}`, kepler90Aliases)
+	defer simbad.Close()
+	nasa := nasaServer(t, map[string]string{"cumulative": kepler90KOI, "pscomppars": `[]`})
+	defer nasa.Close()
+
+	got, err := catalog.NewClient(simbad.URL, nasa.URL).Locate(context.Background(), 284.43, 49.30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Catalog != "KIC" || got.CatalogID != "11442793" || got.Designation != "KIC 11442793" || got.DisplayName != "Kepler-90" {
+		t.Errorf("located = %+v", got)
+	}
+	if got.RA != 284.43 || got.Dec != 49.30 || got.Star.SpectralType != "G0V" || len(got.Star.Planets) != 3 {
+		t.Errorf("located = %+v", got)
+	}
+}
+
+func TestLocateWorksForAStarWithoutAMissionEntry(t *testing.T) {
+	simbad := locateServer(t, `{"data": [[7, "* 16 Cyg B", 295.46, 50.51, "G3V", "*", 47.4]]}`, `{"data": [["* 16 Cyg B"], ["HD 186427"]]}`)
+	defer simbad.Close()
+	nasa := nasaServer(t, nil)
+	defer nasa.Close()
+
+	got, err := catalog.NewClient(simbad.URL, nasa.URL).Locate(context.Background(), 295.46, 50.51)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Catalog != "" || got.CatalogID != "" || got.Designation != "16 Cyg B" || got.DisplayName != "HD 186427" {
+		t.Errorf("located = %+v", got)
+	}
+	if got.Star.SpectralType != "G3V" || len(got.Star.Planets) != 0 {
+		t.Errorf("star = %+v", got.Star)
+	}
+}
+
+func TestLocateReportsNothingNearThePosition(t *testing.T) {
+	simbad := locateServer(t, `{"data": []}`, `{"data": []}`)
+	defer simbad.Close()
+	if _, err := catalog.NewClient(simbad.URL, simbad.URL).Locate(context.Background(), 10, 10); !errors.Is(err, catalog.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestLocateFailsWhenSimbadIsDown(t *testing.T) {
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(503) }))
+	defer down.Close()
+	_, err := catalog.NewClient(down.URL, down.URL).Locate(context.Background(), 10, 10)
+	if err == nil || errors.Is(err, catalog.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func (c *counting) Locate(context.Context, float64, float64) (catalog.Located, error) {
+	return catalog.Located{}, catalog.ErrNotFound
+}

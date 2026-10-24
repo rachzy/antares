@@ -154,8 +154,10 @@ paths:
       operationId: targetInfo
       summary: Catalogue details of a star, by name or position
       description: |
-        Send either `query`, or both `ra_deg` and `dec_deg`, never both. Resolves the star, then
-        looks it up in SIMBAD (aliases, spectral type, distance, magnitude) and the NASA Exoplanet
+        Send either `query`, or both `ra_deg` and `dec_deg`, never both. A `query` is resolved through
+        Shaula; a position is matched to the nearest SIMBAD object within a few arcseconds, so it
+        works for any star, and `target.catalog` is empty when SIMBAD knows no Kepler, K2 or TESS
+        entry for it. The star is then looked up in SIMBAD (aliases, spectral type, distance, magnitude) and the NASA Exoplanet
         Archive (stellar parameters and known planets). Either service can be missing from
         `star.sources`; a star neither knows has empty details. Answers are cached in memory for
         `ANTARES_CATALOG_TTL`. If both services are down the answer is `503`.
@@ -823,8 +825,18 @@ components:
         n_stars: { type: integer, format: int64 }
         n_files: { type: integer, format: int64 }
         n_features: { type: integer, format: int64 }
-        n_positive: { type: integer, format: int64, description: Rows labelled CONFIRMED. }
-        n_negative: { type: integer, format: int64, description: Rows labelled FALSE-POSITIVE. }
+        n_positive:
+          {
+            type: integer,
+            format: int64,
+            description: Rows labelled CONFIRMED.,
+          }
+        n_negative:
+          {
+            type: integer,
+            format: int64,
+            description: Rows labelled FALSE-POSITIVE.,
+          }
         n_unlabelled: { type: integer, format: int64 }
         status_counts:
           type: object
@@ -849,7 +861,8 @@ components:
           status_counts: { accepted: 4900, provisional: 300 },
           confusion_matrices:
             {
-              lightgbm: { tp: 610, fp: 380, fn: 30, tn: 4180, source: held_out },
+              lightgbm:
+                { tp: 610, fp: 380, fn: 30, tn: 4180, source: held_out },
               stack: { tp: 612, fp: 400, fn: 28, tn: 4160, source: held_out },
             },
         }

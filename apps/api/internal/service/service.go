@@ -230,14 +230,20 @@ func (s *Service) Resolve(ctx context.Context, in ResolveInput) (store.Target, e
 	return target, nil
 }
 
+func validPosition(ra, dec float64) error {
+	if math.IsNaN(ra) || math.IsInf(ra, 0) || math.IsNaN(dec) || math.IsInf(dec, 0) ||
+		ra < 0 || ra >= 360 || dec < -90 || dec > 90 {
+		return errf(KindInvalid, "ra_deg must be in [0, 360) and dec_deg in [-90, 90]")
+	}
+	return nil
+}
+
 func (s *Service) resolveByPosition(ctx context.Context, in ResolveInput, mission string) (store.Target, error) {
 	if in.RA == nil || in.Dec == nil {
 		return store.Target{}, errf(KindInvalid, `provide a name or designation in "query", or both "ra_deg" and "dec_deg"`)
 	}
-	ra, dec := *in.RA, *in.Dec
-	if math.IsNaN(ra) || math.IsInf(ra, 0) || math.IsNaN(dec) || math.IsInf(dec, 0) ||
-		ra < 0 || ra >= 360 || dec < -90 || dec > 90 {
-		return store.Target{}, errf(KindInvalid, "ra_deg must be in [0, 360) and dec_deg in [-90, 90]")
+	if err := validPosition(*in.RA, *in.Dec); err != nil {
+		return store.Target{}, err
 	}
 
 	rctx, cancel := context.WithTimeout(ctx, resolveTimeout)
