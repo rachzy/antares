@@ -206,6 +206,11 @@ func locateServer(t *testing.T, cone, aliases string) *httptest.Server {
 		q := r.PostForm.Get("QUERY")
 		switch {
 		case strings.Contains(q, "CONTAINS"):
+			// SIMBAD rejects an expression after ORDER BY, so the distance must be a selected alias.
+			if strings.Contains(q, "ORDER BY DISTANCE") || !strings.Contains(q, "AS sep") || !strings.Contains(q, "ORDER BY sep") {
+				http.Error(w, "bad ADQL "+q, http.StatusBadRequest)
+				return
+			}
 			_, _ = w.Write([]byte(cone))
 		case strings.Contains(q, "FROM ident"):
 			_, _ = w.Write([]byte(aliases))
@@ -218,7 +223,7 @@ func locateServer(t *testing.T, cone, aliases string) *httptest.Server {
 }
 
 func TestLocateFindsTheNearestStarAndItsMissionEntry(t *testing.T) {
-	simbad := locateServer(t, `{"data": [[1234, "* Kepler-90", 284.43, 49.30, "G0V", "*", 1.2]]}`, kepler90Aliases)
+	simbad := locateServer(t, `{"data": [[1234, "* Kepler-90", 284.43, 49.30, "G0V", "*", 1.2]]}`, `{"data": [["KIC 11442793"], ["KOI-351"], ["* Kepler-90"]]}`)
 	defer simbad.Close()
 	nasa := nasaServer(t, map[string]string{"cumulative": kepler90KOI, "pscomppars": `[]`})
 	defer nasa.Close()

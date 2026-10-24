@@ -261,10 +261,10 @@ func cleanID(id string) string {
 // cannot be turned into a star without it.
 func (c *Client) Locate(ctx context.Context, ra, dec float64) (Located, error) {
 	rows, err := simbadRows(ctx, c.HTTP, c.SimbadURL, fmt.Sprintf(
-		"SELECT TOP 1 b.oid, b.main_id, b.ra, b.dec, b.sp_type, b.otype, b.plx_value FROM basic AS b "+
-			"WHERE CONTAINS(POINT('ICRS', b.ra, b.dec), CIRCLE('ICRS', %f, %f, %f)) = 1 "+
-			"ORDER BY DISTANCE(POINT('ICRS', b.ra, b.dec), POINT('ICRS', %f, %f))",
-		ra, dec, locateRadiusDeg, ra, dec))
+		"SELECT TOP 1 b.oid, b.main_id, b.ra, b.dec, b.sp_type, b.otype, b.plx_value, "+
+			"DISTANCE(POINT('ICRS', b.ra, b.dec), POINT('ICRS', %f, %f)) AS sep FROM basic AS b "+
+			"WHERE CONTAINS(POINT('ICRS', b.ra, b.dec), CIRCLE('ICRS', %f, %f, %f)) = 1 ORDER BY sep",
+		ra, dec, ra, dec, locateRadiusDeg))
 	if err != nil {
 		return Located{}, fmt.Errorf("simbad: %w", err)
 	}
@@ -310,6 +310,13 @@ func (c *Client) Locate(ctx context.Context, ra, dec float64) (Located, error) {
 	out.DisplayName = out.Designation
 	if len(out.Star.Aliases) > 0 {
 		out.DisplayName = out.Star.Aliases[0]
+	}
+	// A mission name such as Kepler-186 reads better than a survey candidate name such as KOI-571.
+	for _, alias := range out.Star.Aliases {
+		if strings.HasPrefix(alias, "Kepler-") || strings.HasPrefix(alias, "K2-") || strings.HasPrefix(alias, "TOI-") {
+			out.DisplayName = alias
+			break
+		}
 	}
 	return out, nil
 }
