@@ -10,10 +10,12 @@ import { RunStore } from '../../stores/run.store';
       <div
         data-token
         [title]="token"
-        class="bg-card/90 border-border text-muted-foreground flex items-center gap-2 rounded-lg border py-0.5 pr-1 pl-2.5 font-mono text-xs backdrop-blur-sm"
+        class="bg-card/90 border-border text-muted-foreground flex items-center gap-1.5 rounded-lg border py-0.5 pr-1 pl-2.5 font-mono text-[11px] whitespace-nowrap backdrop-blur-sm"
       >
         <span>Token</span>
-        <span class="text-foreground">{{ short() }}</span>
+        <span class="text-foreground min-w-0 flex-1 truncate">{{
+          short()
+        }}</span>
         <an-copy-button [value]="token" label="Copy token" />
       </div>
     }

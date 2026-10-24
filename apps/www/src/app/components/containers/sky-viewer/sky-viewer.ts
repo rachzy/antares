@@ -1,6 +1,7 @@
 import {
   afterNextRender,
   Component,
+  computed,
   DestroyRef,
   ElementRef,
   inject,
@@ -26,6 +27,7 @@ export class SkyViewer {
   );
   protected readonly loading = signal(true);
   readonly loadError = signal(false);
+  readonly ready = computed(() => !this.loading() && !this.loadError());
   private readonly fov = signal(INITIAL_FOV_DEG);
   readonly fovDeg = this.fov.asReadonly();
 
