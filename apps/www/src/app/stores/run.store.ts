@@ -138,6 +138,8 @@ export const RunStore = signalStore(
       unlocked: computed<Step>(() => {
         if (!store.star()) return 'select';
         if (scoreStarted()) return 'score';
+        // A confirmed star may have no light curve, so Download opens only once an extraction started.
+        if (store.extract().status === 'idle') return 'select';
         return downloadDone() ? 'process' : 'download';
       }),
       candidates: computed(() => store.extract().result?.features.length ?? 0),

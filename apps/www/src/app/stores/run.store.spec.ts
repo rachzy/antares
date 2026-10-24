@@ -159,8 +159,16 @@ describe('RunStore', () => {
     expect(store.extract().status).toBe('idle');
     expect(store.extract().events).toEqual([]);
     expect(store.score().status).toBe('idle');
-    expect(store.unlocked()).toBe('download');
+    expect(store.unlocked()).toBe('select');
     expect(reset).toHaveBeenCalled();
+  });
+
+  it('keeps Download locked until an extraction starts', () => {
+    const store = setup();
+    store.confirm(star);
+    expect(store.unlocked()).toBe('select');
+    store.startExtract();
+    expect(store.unlocked()).toBe('download');
   });
 
   it('startExtract sends the star position with the mapped mission', () => {
