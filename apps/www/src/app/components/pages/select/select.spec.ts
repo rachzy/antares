@@ -14,7 +14,7 @@ import { RunStore } from '../../../stores/run.store';
 import { StarInfoStore } from '../../../stores/star-info.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
-import { MAX_CONFIRM_FOV_DEG, Select } from './select';
+import { KEPLER_ZOOM_FOV_DEG, MAX_CONFIRM_FOV_DEG, Select } from './select';
 
 vi.mock('@spartan-ng/brain/sonner', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -25,6 +25,7 @@ const callbacks = new Map<string, () => void>();
 let fov = 60;
 let center: [number, number] = [291.03, 48.14];
 const gotoObject = vi.fn();
+const setFov = vi.fn();
 
 vi.mock('aladin-lite', () => ({
   default: {
@@ -36,6 +37,7 @@ vi.mock('aladin-lite', () => ({
       getFov: () => [fov, fov / 2],
       getRaDec: () => center,
       gotoObject,
+      setFov,
       on: (event: string, cb: () => void) => callbacks.set(event, cb),
     }),
   },
@@ -60,6 +62,7 @@ describe('Select', () => {
   const locate = vi.fn();
   const confirmed = signal<Target | null>(null);
   const confirm = vi.fn((t: Target) => confirmed.set(t));
+  const reset = vi.fn(() => confirmed.set(null));
   const loadInfo = vi.fn();
   const resetInfo = vi.fn();
   const details = signal<StarDetails | null>(null);
@@ -98,6 +101,8 @@ describe('Select', () => {
     vi.mocked(toast.error).mockClear();
     vi.mocked(toast.success).mockClear();
     gotoObject.mockReset();
+    setFov.mockReset();
+    reset.mockClear();
 
     await TestBed.configureTestingModule({
       imports: [Select],
@@ -125,6 +130,7 @@ describe('Select', () => {
           useValue: {
             star: confirmed,
             confirm,
+            reset,
             startExtract,
             extract: computed(() => ({ status: extractStatus() })),
             score: computed(() => ({ status: scoreStatus() })),
@@ -252,6 +258,43 @@ describe('Select', () => {
     await fixture.whenStable();
     expect(gotoObject).toHaveBeenCalledWith('Kepler-186', expect.any(Object));
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  const search = async (text: string) => {
+    gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    const page = await mount();
+    const input = page.el.querySelector<HTMLInputElement>(
+      'input[role="combobox"]',
+    )!;
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+    page.el.querySelector('form')!.dispatchEvent(new Event('submit'));
+    await page.fixture.whenStable();
+  };
+
+  it('drops the previous star when a new search starts', async () => {
+    confirmed.set(star);
+    await search('Vega');
+    expect(reset).toHaveBeenCalled();
+    expect(confirmed()).toBeNull();
+  });
+
+  it('keeps a running job when searching again', async () => {
+    confirmed.set(star);
+    extractStatus.set('running');
+    await search('Vega');
+    expect(reset).not.toHaveBeenCalled();
+  });
+
+  it('zooms in on a Kepler star only', async () => {
+    await search('Kepler-186');
+    expect(setFov).toHaveBeenCalledWith(KEPLER_ZOOM_FOV_DEG);
+    expect(gotoObject).toHaveBeenCalledWith('Kepler-186', expect.any(Object));
+  });
+
+  it('leaves the zoom alone for other objects', async () => {
+    await search('Vega');
+    expect(setFov).not.toHaveBeenCalled();
   });
 
   it('toasts when the search finds nothing', async () => {

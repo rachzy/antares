@@ -6,6 +6,7 @@ const pix2worldMock = vi.fn();
 const getFovMock = vi.fn();
 const getRaDecMock = vi.fn();
 const gotoObjectMock = vi.fn();
+const setFovMock = vi.fn();
 const callbacks = new Map<string, () => void>();
 let initPromise: Promise<void>;
 
@@ -21,6 +22,7 @@ vi.mock('aladin-lite', () => ({
         getFov: getFovMock,
         getRaDec: getRaDecMock,
         gotoObject: gotoObjectMock,
+        setFov: setFovMock,
         on: (event: string, cb: () => void) => callbacks.set(event, cb),
       };
     },
@@ -46,6 +48,7 @@ describe('SkyViewer', () => {
     getFovMock.mockReset();
     getRaDecMock.mockReset();
     gotoObjectMock.mockReset();
+    setFovMock.mockReset();
     callbacks.clear();
     initPromise = Promise.resolve();
 
@@ -262,6 +265,18 @@ describe('SkyViewer', () => {
       'Kepler-186',
       expect.any(Object),
     );
+  });
+
+  it('zooms to the requested field of view after a successful goto', async () => {
+    const fixture = TestBed.createComponent(SkyViewer);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(aladinMock).toHaveBeenCalled());
+    gotoObjectMock.mockImplementationOnce((_q, cb) => cb.success([1, 2]));
+    await fixture.componentInstance.goto('Kepler-186', 0.02);
+    expect(setFovMock).toHaveBeenCalledWith(0.02);
+    gotoObjectMock.mockImplementationOnce((_q, cb) => cb.error());
+    await fixture.componentInstance.goto('nowhere', 0.02);
+    expect(setFovMock).toHaveBeenCalledTimes(1);
   });
 
   it('reports a failed goto before Aladin is ready', async () => {
