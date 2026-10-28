@@ -5,6 +5,7 @@
     [events]="events()"
     [status]="run.extract().status"
     [done]="done()"
+    waiting="Establishing connection to Shaula..."
   />
 }
 @if (run.processDone() && features().length) {

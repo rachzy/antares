@@ -554,3 +554,35 @@ func TestAHangingShaulaStillLetsFangsVersionBeRead(t *testing.T) {
 		t.Fatalf("health = %v: each upstream needs its own version timeout", health)
 	}
 }
+
+func TestQueuedAndRunningArriveWhileTheDownloadIsStillGoing(t *testing.T) {
+	release := make(chan struct{})
+	g := newRig(t, nil, func(s *fake.Shaula, _ *fake.Fang) {
+		s.ExtractFn = func(ctx context.Context, _ upstream.ExtractRequest, _ func(upstream.Progress)) (upstream.FeatureSet, error) {
+			select {
+			case <-release:
+				return fake.DefaultFeatureSet(upstream.ExtractRequest{}), nil
+			case <-ctx.Done():
+				return upstream.FeatureSet{}, ctx.Err()
+			}
+		}
+	})
+	defer close(release)
+
+	code, body := g.post(t, "/pipeline/extract", `{"ra_deg":290.1,"dec_deg":44.5,"mission":"Kepler"}`)
+	if code != http.StatusAccepted {
+		t.Fatalf("status %d body %v", code, body)
+	}
+	conn := g.dial(t, "/subscription/"+text(t, body, "token"))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	var frame struct {
+		Events []hub.Event `json:"events"`
+	}
+	if err := wsjson.Read(ctx, conn, &frame); err != nil {
+		t.Fatalf("no frame while the extraction runs: %v", err)
+	}
+	if got := stages(frame.Events); !slices.Equal(got, []string{"queued", "running"}) {
+		t.Fatalf("first frame stages = %v", got)
+	}
+}

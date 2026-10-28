@@ -21,11 +21,12 @@ import { StarInfoStore } from '../../../stores/star-info.store';
 import { TargetStore } from '../../../stores/target.store';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
 import { StarDetailsView } from '../../containers/star-details/star-details';
-import { suggestKeplerStars } from './kepler-suggestions';
+import { isKeplerStar, suggestKeplerStars } from './kepler-suggestions';
 import { simbadUrl } from './simbad-url';
 
 // The API matches within 4 arcsec; 0.05 deg (180 arcsec) across the view keeps the ring a few arcsec wide.
 export const MAX_CONFIRM_FOV_DEG = 0.05;
+export const KEPLER_ZOOM_FOV_DEG = 0.02;
 
 @Component({
   selector: 'an-select',
@@ -192,7 +193,15 @@ export class Select {
     const query = this.query().trim();
     if (!query || this.searching()) return;
     this.searching.set(true);
-    const found = await this.sky()?.goto(query);
+    const busy = [this.run.extract(), this.run.score()].some(
+      (s) => s.status === 'running',
+    );
+    // A running job is kept: replacing it is the Replace dialog's call.
+    if (!busy) this.run.reset();
+    const found = await this.sky()?.goto(
+      query,
+      isKeplerStar(query) ? KEPLER_ZOOM_FOV_DEG : undefined,
+    );
     this.searching.set(false);
     if (!found) toast.error(`No object named "${query}" found`);
   }

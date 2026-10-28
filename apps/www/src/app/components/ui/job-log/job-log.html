@@ -8,6 +8,9 @@
   @if (note(); as note) {
     <div data-line class="text-muted-foreground">{{ note }}</div>
   }
+  @if (waitingLine(); as waiting) {
+    <div data-line class="text-muted-foreground">{{ waiting }}</div>
+  }
   @for (line of lines(); track line.seq) {
     <div data-line [class.text-destructive]="line.error">
       <span class="text-muted-foreground">{{ line.time }}</span>

@@ -9,3 +9,10 @@ export function suggestKeplerStars(query: string): string[] {
     name.toLowerCase().startsWith(prefix),
   ).slice(0, MAX_SUGGESTIONS);
 }
+
+const KEPLER_SET = new Set(KEPLER_STARS);
+
+/** Whether the query is exactly a known Kepler star name. */
+export function isKeplerStar(query: string): boolean {
+  return KEPLER_SET.has(query.trim());
+}

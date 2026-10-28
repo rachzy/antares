@@ -53,12 +53,15 @@ export class SkyViewer {
     return this.aladin?.getRaDec() ?? null;
   }
 
-  goto(query: string): Promise<boolean> {
+  goto(query: string, zoomFovDeg?: number): Promise<boolean> {
     const aladin = this.aladin;
     if (!aladin) return Promise.resolve(false);
     return new Promise((resolve) =>
       aladin.gotoObject(query, {
-        success: () => resolve(true),
+        success: () => {
+          if (zoomFovDeg !== undefined) aladin.setFoV(zoomFovDeg);
+          resolve(true);
+        },
         error: () => resolve(false),
       }),
     );
