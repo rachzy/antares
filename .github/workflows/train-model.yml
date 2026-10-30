@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: Run id in the form 20261030T120000Z-abc123 (Fang only serves ids of this shape). Leave empty to generate one.
+        description: Model name. Fang only serves ids like 20261030T120000Z-abc123, so a UTC timestamp is added in front of any other name. Leave empty to generate an id.
         required: false
         default: ''
       config:
@@ -34,7 +34,7 @@ jobs:
     env:
       DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
       SSH_PORT: ${{ secrets.VPS_PORT || '22' }}
-      RUN_ID: ${{ inputs.run_id }}
+      RUN_NAME: ${{ inputs.run_id }}
       CONFIG: ${{ inputs.config }}
       SKIP_EVAL: ${{ inputs.skip_evaluation && '1' || '' }}
       SHAULA_REF: ${{ inputs.shaula_ref }}
@@ -55,9 +55,14 @@ jobs:
             ServerAliveInterval 30
           CONF
 
-      - name: Validate inputs
+      - name: Resolve run id
         run: |
-          [[ -z "$RUN_ID" || "$RUN_ID" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]+$ ]] || { echo "run_id must look like 20261030T120000Z-abc123 (or be empty)"; exit 1; }
+          if [ -z "$RUN_NAME" ]; then RUN_ID=""
+          elif [[ "$RUN_NAME" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]+$ ]]; then RUN_ID="$RUN_NAME"
+          else RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$(printf '%s' "$RUN_NAME" | sha1sum | cut -c1-8)"
+          fi
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          [ -z "$RUN_ID" ] || echo "Model '$RUN_NAME' is trained as run $RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"
           [[ "$SHAULA_REF" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "Invalid shaula_ref"; exit 1; }
 
       # Detached so a dropped SSH session does not kill training; the log is followed until it exits.
