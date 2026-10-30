@@ -32,7 +32,7 @@ This writes `FANG_MODELS_DIR` to `.env`, bind-mounts it at `/var/lib/fang/models
 
 ### Training on the VPS
 
-The manual **Train Fang model** workflow (Actions tab) downloads `data/extracted` from `rachzy/shaula`, runs `fang train` in a one-off Fang container that writes into the served models volume, and checks the run is listed. Inputs: model name (empty = timestamp), bundled config name (empty = default), skip evaluation, and the Shaula ref. Fang lists runs on every request, so no restart is needed. Add the `SHAULA_DATA_TOKEN` secret (a read-only token) if `rachzy/shaula` is private. By hand: `make fang-train RUN_ID=... CONFIG=... SKIP_EVAL=1`. Requires a Fang version with `--run-id` and `--config-name`.
+The manual **Train Fang model** workflow (Actions tab) downloads `data/extracted` from `rachzy/shaula`, runs `fang train` in a one-off Fang container that writes into the served models volume, and checks the run is listed. Inputs: model name (empty = timestamp), bundled config name (empty = default), skip evaluation, and the Shaula ref. Fang lists runs on every request, so no restart is needed. Add the `SHAULA_DATA_TOKEN` secret (a read-only token) if `rachzy/shaula` is private. By hand: `make fang-train RUN_ID=... CONFIG=... SKIP_EVAL=1`. The config dropdown comes from `fang configs`: after bumping Fang run `make sync-configs` (a PR check fails when the list is stale).
 
 ## TLS
 

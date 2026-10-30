@@ -8,9 +8,12 @@ on:
         required: false
         default: ''
       config:
-        description: Bundled Fang config name. Leave empty for the default config.
-        required: false
-        default: ''
+        description: Bundled Fang config (kept in sync by `make sync-configs`).
+        type: choice
+        default: default
+        options:
+          - default
+          - recipe-v3
       skip_evaluation:
         description: Skip the nested evaluation (much faster, but the run has no honest metrics).
         type: boolean
@@ -55,7 +58,6 @@ jobs:
       - name: Validate inputs
         run: |
           [[ -z "$RUN_ID" || "$RUN_ID" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid run_id"; exit 1; }
-          [[ -z "$CONFIG" || "$CONFIG" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid config"; exit 1; }
           [[ "$SHAULA_REF" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "Invalid shaula_ref"; exit 1; }
 
       # Detached so a dropped SSH session does not kill training; the log is followed until it exits.
