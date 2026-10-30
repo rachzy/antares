@@ -1,0 +1,13 @@
+name: Fang config choices
+
+on:
+  pull_request:
+    paths: ['apps/fang/uv.lock', 'apps/fang/pyproject.toml', '.github/workflows/train-model.yml']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: python3 scripts/sync-fang-configs.py --check

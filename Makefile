@@ -8,7 +8,7 @@ API_PORT   ?= 8081
 PROXY_PORT ?= 80
 
 .PHONY: help install setup proto dev dev-www dev-api dev-shaula dev-fang build lint lint-fix \
-	format format-check test ci docker-build up up-dev build-up fang-models bump-deps down restart ps logs clean
+	format format-check test ci docker-build up up-dev build-up fang-models fang-data fang-train fang-runs sync-configs bump-deps down restart ps logs clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -84,6 +84,29 @@ fang-models: ## Point Fang at a model bundle directory and restart it (MODELS=/a
 	@test -d "$(MODELS)" || { echo "$(MODELS) is not a directory"; exit 1; }
 	@touch .env && sed -i '/^FANG_MODELS_DIR=/d' .env && echo "FANG_MODELS_DIR=$(MODELS)" >> .env
 	$(COMPOSE) up -d --no-deps fang
+
+SHAULA_REPO   ?= rachzy/shaula
+SHAULA_REF    ?= main
+TRAIN_DATA    ?= .data/training/extracted
+
+fang-data: ## Download data/extracted from the Shaula repo into TRAIN_DATA (needs GITHUB_TOKEN if private)
+	@rm -rf "$(TRAIN_DATA)" && mkdir -p "$(TRAIN_DATA)"
+	curl -fsSL $(if $(GITHUB_TOKEN),-H "Authorization: Bearer $(GITHUB_TOKEN)") \
+		"https://api.github.com/repos/$(SHAULA_REPO)/tarball/$(SHAULA_REF)" \
+		| tar -xz -C "$(TRAIN_DATA)" --strip-components=3 --wildcards '*/data/extracted/*'
+	@echo "$$(ls "$(TRAIN_DATA)" | wc -l) files in $(TRAIN_DATA)"
+
+fang-train: fang-data ## Train a Fang model into the served models volume (RUN_ID= CONFIG= SKIP_EVAL=1)
+	$(COMPOSE) run --rm --no-deps -v "$(abspath $(TRAIN_DATA)):/data:ro" fang \
+		fang train /data --artifact-dir /var/lib/fang/models \
+		$(if $(RUN_ID),--run-id "$(RUN_ID)") $(if $(CONFIG),--config-name "$(CONFIG)") \
+		$(if $(SKIP_EVAL),--skip-evaluation)
+
+fang-runs: ## List the model runs Fang can serve
+	$(COMPOSE) run --rm --no-deps fang python -c "from fang.service import list_runs; [print(r.run_id, r.created_at) for r in list_runs('/var/lib/fang/models')]"
+
+sync-configs: ## Refresh the train-model workflow's config choices from `fang configs`
+	python3 scripts/sync-fang-configs.py
 
 bump-deps: ## Relock shaula and fang to the latest commit of their main branches
 	cd apps/shaula && uv lock --upgrade-package shaula

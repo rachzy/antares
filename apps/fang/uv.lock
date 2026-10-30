@@ -239,7 +239,7 @@ wheels = [
 [[package]]
 name = "fang"
 version = "0.0.1a0"
-source = { git = "https://github.com/rachzy/fang?branch=main#b51cee94e948fa221cf4323d6231dba45800cf36" }
+source = { git = "https://github.com/rachzy/fang?branch=main#f78326bbaf584de130859571e7152b7b27361213" }
 dependencies = [
     { name = "catboost" },
     { name = "joblib" },
