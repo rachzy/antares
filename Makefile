@@ -98,7 +98,7 @@ fang-data: ## Download data/extracted from the Shaula repo into TRAIN_DATA (need
 
 fang-train: fang-data ## Train a Fang model into the served models volume (RUN_ID= CONFIG= SKIP_EVAL=1)
 	$(COMPOSE) run --rm --no-deps -v "$(abspath $(TRAIN_DATA)):/data:ro" fang \
-		fang train /data --artifact-dir /var/lib/fang/models \
+		python -c 'from fang.cli import app; app()' train /data --artifact-dir /var/lib/fang/models \
 		$(if $(RUN_ID),--run-id "$(RUN_ID)") $(if $(CONFIG),--config-name "$(CONFIG)") \
 		$(if $(SKIP_EVAL),--skip-evaluation)
 
