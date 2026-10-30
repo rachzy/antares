@@ -1,0 +1,79 @@
+name: Train Fang model
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Model name (run id). Leave empty to generate one from the timestamp.
+        required: false
+        default: ''
+      config:
+        description: Bundled Fang config (kept in sync by `make sync-configs`).
+        type: choice
+        default: default
+        options:
+          - default
+          - recipe-v3
+      skip_evaluation:
+        description: Skip the nested evaluation (much faster, but the run has no honest metrics).
+        type: boolean
+        default: false
+      shaula_ref:
+        description: Branch or tag of rachzy/shaula to take data/extracted from.
+        required: false
+        default: main
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+      SSH_PORT: ${{ secrets.VPS_PORT || '22' }}
+      RUN_ID: ${{ inputs.run_id }}
+      CONFIG: ${{ inputs.config }}
+      SKIP_EVAL: ${{ inputs.skip_evaluation && '1' || '' }}
+      SHAULA_REF: ${{ inputs.shaula_ref }}
+    steps:
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CONF
+          Host vps
+            HostName ${{ secrets.VPS_HOST }}
+            User ${{ secrets.VPS_USER }}
+            Port ${SSH_PORT}
+            IdentityFile ~/.ssh/id_deploy
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          CONF
+
+      - name: Validate inputs
+        run: |
+          [[ -z "$RUN_ID" || "$RUN_ID" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid run_id"; exit 1; }
+          [[ "$SHAULA_REF" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "Invalid shaula_ref"; exit 1; }
+
+      # Detached so a dropped SSH session does not kill training; the log is followed until it exits.
+      - name: Train on the VPS
+        env:
+          DATA_TOKEN: ${{ secrets.SHAULA_DATA_TOKEN }}
+        run: |
+          LOG=".data/train-$(date -u +%Y%m%dT%H%M%SZ).log"
+          printf '%s\n' "$DATA_TOKEN" | ssh vps "
+            read -r GITHUB_TOKEN; export GITHUB_TOKEN
+            cd '$DEPLOY_PATH' && mkdir -p .data
+            setsid nohup sh -c 'make fang-train ENV=prod RUN_ID=\"$RUN_ID\" CONFIG=\"$CONFIG\" SKIP_EVAL=\"$SKIP_EVAL\" SHAULA_REF=\"$SHAULA_REF\"; echo \$? > $LOG.exit' > '$LOG' 2>&1 < /dev/null &
+          "
+          ssh vps "cd '$DEPLOY_PATH' && while [ ! -f '$LOG.exit' ]; do sleep 5; done; cat '$LOG'; exit \$(cat '$LOG.exit')"
+
+      - name: Verify the model is served
+        run: |
+          ssh vps "cd '$DEPLOY_PATH' && make -s fang-runs ENV=prod" | tee runs.txt
+          [ -z "$RUN_ID" ] || grep -q "^$RUN_ID " runs.txt || { echo "Run $RUN_ID is not servable"; exit 1; }
