@@ -16,56 +16,66 @@
     in starlight when a world crosses in front of its sun.
   </p>
 
-  <form class="w-full text-left" (submit)="$event.preventDefault(); submit()">
-    <hlm-autocomplete
-      class="block w-full"
-      [search]="query()"
-      (searchChange)="query.set($event)"
-      (valueChange)="pick($event)"
-      [state]="suggestionsOpen() ? 'open' : 'closed'"
-      (stateChanged)="setSuggestionsState($event)"
-      [autoHighlight]="true"
-      (focusin)="openSuggestions($event)"
-      (click)="openSuggestions($event)"
-      (keydown.enter)="submit()"
-    >
-      <hlm-autocomplete-input
-        class="bg-card/90"
-        aria-label="Search for a star"
-        placeholder="Search a Kepler star to begin"
-        [showSearch]="false"
-      />
-      <ng-template hlmAutocompletePortal>
-        <hlm-autocomplete-content>
-          <div hlmAutocompleteList>
-            @for (name of suggestions(); track name) {
-              <hlm-autocomplete-item [value]="name">{{
-                name
-              }}</hlm-autocomplete-item>
-            }
-          </div>
-        </hlm-autocomplete-content>
-      </ng-template>
-    </hlm-autocomplete>
-  </form>
+  <an-mode-switch [(mode)]="mode" />
 
-  <div class="flex flex-wrap items-center justify-center gap-2 text-sm">
-    <span class="text-muted-foreground">Try</span>
-    @for (name of examples; track name) {
-      <a
-        hlmBtn
-        variant="outline"
-        size="sm"
-        class="rounded-full"
-        routerLink="/select"
-        [queryParams]="{ q: name }"
-        >{{ name }}</a
+  @if (mode() === 'aladin') {
+    <form class="w-full text-left" (submit)="$event.preventDefault(); submit()">
+      <hlm-autocomplete
+        class="block w-full"
+        [search]="query()"
+        (searchChange)="query.set($event)"
+        (valueChange)="pick($event)"
+        [state]="suggestionsOpen() ? 'open' : 'closed'"
+        (stateChanged)="setSuggestionsState($event)"
+        [autoHighlight]="true"
+        (focusin)="openSuggestions($event)"
+        (click)="openSuggestions($event)"
+        (keydown.enter)="submit()"
       >
-    }
-  </div>
+        <hlm-autocomplete-input
+          class="bg-card/90"
+          aria-label="Search for a star"
+          placeholder="Search a Kepler star to begin"
+          [showSearch]="false"
+        />
+        <ng-template hlmAutocompletePortal>
+          <hlm-autocomplete-content>
+            <div hlmAutocompleteList>
+              @for (name of suggestions(); track name) {
+                <hlm-autocomplete-item [value]="name">{{
+                  name
+                }}</hlm-autocomplete-item>
+              }
+            </div>
+          </hlm-autocomplete-content>
+        </ng-template>
+      </hlm-autocomplete>
+    </form>
 
-  <a hlmBtn routerLink="/select" class="rounded-full" data-look-closer>
-    Look closer
-    <ng-icon name="lucideArrowRight" />
-  </a>
+    <div class="flex flex-wrap items-center justify-center gap-2 text-sm">
+      <span class="text-muted-foreground">Try</span>
+      @for (name of examples; track name) {
+        <a
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="rounded-full"
+          routerLink="/select"
+          [queryParams]="{ q: name }"
+          >{{ name }}</a
+        >
+      }
+    </div>
+
+    <a hlmBtn routerLink="/select" class="rounded-full" data-look-closer>
+      Look closer
+      <ng-icon name="lucideArrowRight" />
+    </a>
+  } @else {
+    <an-manual-select
+      class="w-full text-left"
+      idPrefix="welcome"
+      (lookup)="lookup($event)"
+    />
+  }
 </section>

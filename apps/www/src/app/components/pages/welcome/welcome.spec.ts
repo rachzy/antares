@@ -105,4 +105,24 @@ describe('Welcome', () => {
       queryParams: { q: 'Tabby star zzz' },
     });
   });
+  it('opens the select page on the name entered manually', async () => {
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
+    const fixture = TestBed.createComponent(Welcome);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('[data-mode="manual"]')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('[data-look-closer]')).toBeNull();
+    const input = el.querySelector<HTMLInputElement>('#welcome-name')!;
+    input.value = 'Kepler-186';
+    input.dispatchEvent(new Event('input'));
+    el.querySelector('an-manual-select form')!.dispatchEvent(
+      new Event('submit'),
+    );
+    expect(navigate).toHaveBeenCalledWith(['/select'], {
+      queryParams: { q: 'Kepler-186' },
+    });
+  });
 });

@@ -47,68 +47,103 @@
     }
   </section>
 }
-<div class="relative min-h-64 min-w-0 flex-1 overflow-hidden rounded-xl">
-  <an-sky-viewer />
-  <form
-    class="absolute top-14 left-1/2 flex w-[min(22rem,calc(100%-1.5rem))] -translate-x-1/2 items-center gap-1.5 md:top-3"
-    (submit)="$event.preventDefault(); search()"
-  >
-    <hlm-autocomplete
-      class="min-w-0 flex-1"
-      [search]="query()"
-      (searchChange)="query.set($event)"
-      (valueChange)="pick($event)"
-      [state]="suggestionsOpen() ? 'open' : 'closed'"
-      (stateChanged)="setSuggestionsState($event)"
-      [autoHighlight]="false"
-      (focusin)="openSuggestions($event)"
-      (click)="openSuggestions($event)"
-      (keydown.enter)="searchTyped()"
-    >
-      <hlm-autocomplete-input
-        class="bg-card/90 backdrop-blur-sm"
-        aria-label="Search the sky by object name"
-        placeholder="Search a star or object, e.g. Kepler-186"
-        [showSearch]="false"
-      />
-      <ng-template hlmAutocompletePortal>
-        <hlm-autocomplete-content>
-          <div hlmAutocompleteList>
-            @for (name of suggestions(); track name) {
-              <hlm-autocomplete-item [value]="name">{{
-                name
-              }}</hlm-autocomplete-item>
-            }
-          </div>
-        </hlm-autocomplete-content>
-      </ng-template>
-    </hlm-autocomplete>
-    <button
-      hlmBtn
-      size="icon"
-      type="submit"
-      aria-label="Search"
-      [disabled]="searching() || !query().trim()"
-    >
-      <ng-icon
-        [name]="searching() ? 'lucideLoader2' : 'lucideSearch'"
-        [class.animate-spin]="searching()"
-      />
-    </button>
-  </form>
-  <div
-    class="bg-card/90 absolute bottom-14 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 rounded-xl p-3.5 shadow-sm backdrop-blur-sm"
-  >
-    <button hlmBtn type="button" [disabled]="!canConfirm()" (click)="confirm()">
-      @if (locating()) {
-        <ng-icon data-spinner name="lucideLoader2" class="animate-spin" />
-      }
-      Confirm star
-    </button>
-    @if (tooWide()) {
-      <p class="text-muted-foreground text-xs">
-        Zoom in until a single star sits inside the ring.
+<div class="flex min-h-64 min-w-0 flex-1 flex-col gap-2">
+  <div class="flex flex-wrap items-center gap-2">
+    <an-mode-switch [(mode)]="mode" />
+    @if (mode() === 'aladin') {
+      <form
+        class="flex max-w-md min-w-56 flex-1 items-center gap-1.5"
+        (submit)="$event.preventDefault(); search()"
+      >
+        <hlm-autocomplete
+          class="min-w-0 flex-1"
+          [search]="query()"
+          (searchChange)="query.set($event)"
+          (valueChange)="pick($event)"
+          [state]="suggestionsOpen() ? 'open' : 'closed'"
+          (stateChanged)="setSuggestionsState($event)"
+          [autoHighlight]="false"
+          (focusin)="openSuggestions($event)"
+          (click)="openSuggestions($event)"
+          (keydown.enter)="searchTyped()"
+        >
+          <hlm-autocomplete-input
+            class="bg-card/90 backdrop-blur-sm"
+            aria-label="Search the sky by object name"
+            placeholder="Search a star or object, e.g. Kepler-186"
+            [showSearch]="false"
+          />
+          <ng-template hlmAutocompletePortal>
+            <hlm-autocomplete-content>
+              <div hlmAutocompleteList>
+                @for (name of suggestions(); track name) {
+                  <hlm-autocomplete-item [value]="name">{{
+                    name
+                  }}</hlm-autocomplete-item>
+                }
+              </div>
+            </hlm-autocomplete-content>
+          </ng-template>
+        </hlm-autocomplete>
+        <button
+          hlmBtn
+          size="icon"
+          type="submit"
+          aria-label="Search"
+          [disabled]="searching() || !query().trim()"
+        >
+          <ng-icon
+            [name]="searching() ? 'lucideLoader2' : 'lucideSearch'"
+            [class.animate-spin]="searching()"
+          />
+        </button>
+      </form>
+    } @else {
+      <p class="text-muted-foreground text-sm">
+        Enter a name or coordinates. The sky viewer centers on the result.
       </p>
+    }
+  </div>
+  <div class="relative min-h-64 flex-1 overflow-hidden rounded-xl">
+    <an-sky-viewer />
+    @if (mode() === 'aladin') {
+      <div
+        class="bg-card/90 absolute bottom-14 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 rounded-xl p-3.5 shadow-sm backdrop-blur-sm"
+      >
+        <button
+          hlmBtn
+          type="button"
+          [disabled]="!canConfirm()"
+          (click)="confirm()"
+        >
+          @if (locating()) {
+            <ng-icon data-spinner name="lucideLoader2" class="animate-spin" />
+          }
+          Confirm star
+        </button>
+        @if (tooWide()) {
+          <p class="text-muted-foreground text-xs">
+            Zoom in until a single star sits inside the ring.
+          </p>
+        }
+      </div>
+    } @else {
+      <div
+        class="bg-background/60 absolute inset-0 grid place-items-center overflow-y-auto p-3"
+      >
+        <section
+          aria-label="Enter a star manually"
+          class="bg-card/90 border-border flex w-[min(27.5rem,100%)] flex-col gap-4 rounded-2xl border p-6 shadow-xl backdrop-blur-md"
+        >
+          <div>
+            <h2 class="font-serif text-2xl font-semibold">Enter a star</h2>
+            <p class="text-muted-foreground text-sm">
+              Use a name or catalog ID, or the position.
+            </p>
+          </div>
+          <an-manual-select idPrefix="select" (lookup)="lookup($event)" />
+        </section>
+      </div>
     }
   </div>
 </div>

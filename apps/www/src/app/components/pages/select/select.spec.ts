@@ -636,4 +636,70 @@ describe('Select', () => {
     expect(toast.error).toHaveBeenCalledTimes(1);
     expect(toast.error).toHaveBeenCalledWith('Unable to load the sky viewer.');
   });
+  describe('manual select', () => {
+    const openManual = async () => {
+      const page = await mount();
+      page.button('Manual select')!.click();
+      await page.fixture.whenStable();
+      return page;
+    };
+    const fill = (el: HTMLElement, id: string, value: string) => {
+      const input = el.querySelector<HTMLInputElement>(`#${id}`)!;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+    };
+    const submit = async (page: Awaited<ReturnType<typeof openManual>>) => {
+      page.el
+        .querySelector('an-manual-select form')!
+        .dispatchEvent(new Event('submit'));
+      await page.fixture.whenStable();
+    };
+
+    it('starts on Aladin with the search in the toolbar', async () => {
+      const { el } = await mount();
+      expect(el.querySelector('input[role="combobox"]')).not.toBeNull();
+      expect(el.querySelector('an-manual-select')).toBeNull();
+    });
+
+    it('shows the manual form instead of the search and Confirm', async () => {
+      const { el, button } = await openManual();
+      expect(el.querySelector('an-manual-select')).not.toBeNull();
+      expect(el.querySelector('input[role="combobox"]')).toBeNull();
+      expect(button('Confirm star')).toBeUndefined();
+    });
+
+    it('goes back to Aladin and searches the name that was entered', async () => {
+      gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+      const page = await openManual();
+      fill(page.el, 'select-name', ' Kepler-186 ');
+      await submit(page);
+      expect(gotoObject).toHaveBeenCalledWith('Kepler-186', expect.any(Object));
+      expect(page.el.querySelector('an-manual-select')).toBeNull();
+      expect(
+        page.el.querySelector<HTMLInputElement>('input[role="combobox"]')
+          ?.value,
+      ).toBe('Kepler-186');
+    });
+
+    it('searches coordinates the same way', async () => {
+      gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+      const page = await openManual();
+      fill(page.el, 'select-ra', '298.65');
+      fill(page.el, 'select-dec', '43.95');
+      await submit(page);
+      expect(gotoObject).toHaveBeenCalledWith(
+        '298.650000 +43.950000',
+        expect.any(Object),
+      );
+    });
+
+    it('stays on the manual form and explains a bad entry', async () => {
+      const page = await openManual();
+      await submit(page);
+      expect(gotoObject).not.toHaveBeenCalled();
+      expect(page.el.querySelector('[role="alert"]')?.textContent).toContain(
+        'Enter a star name or both coordinates.',
+      );
+    });
+  });
 });

@@ -19,8 +19,10 @@ import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { StarInfoStore } from '../../../stores/star-info.store';
 import { TargetStore } from '../../../stores/target.store';
+import { ManualSelect } from '../../containers/manual-select/manual-select';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
 import { StarDetailsView } from '../../containers/star-details/star-details';
+import { type SelectMode, ModeSwitch } from '../../ui/mode-switch';
 import { isKeplerStar, suggestKeplerStars } from './kepler-suggestions';
 import { simbadUrl } from './simbad-url';
 
@@ -33,6 +35,8 @@ export const KEPLER_ZOOM_FOV_DEG = 0.02;
   imports: [
     SkyViewer,
     StarDetailsView,
+    ManualSelect,
+    ModeSwitch,
     NgIcon,
     HlmButtonImports,
     HlmCheckboxImports,
@@ -56,6 +60,7 @@ export class Select {
   private readonly extracting = signal(false);
   protected readonly pending = signal<Target | null>(null);
   private closedAt = 0;
+  protected readonly mode = signal<SelectMode>('aladin');
   protected readonly query = signal('');
   protected readonly searching = signal(false);
   protected readonly suggestionsOpen = signal(false);
@@ -164,6 +169,13 @@ export class Select {
     if (!center) return;
     this.awaiting.set(true);
     this.starInfo.locate(center[0], center[1]);
+  }
+
+  // Back to Aladin with the query filled in, so the lookup reads as the same search.
+  protected lookup(query: string): void {
+    this.mode.set('aladin');
+    this.query.set(query);
+    void this.search();
   }
 
   protected setSuggestionsState(state: string): void {
