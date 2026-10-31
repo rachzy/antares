@@ -1,7 +1,7 @@
 import { Component, input, output, signal } from '@angular/core';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
-import { manualQuery } from './manual-query';
+import { type ManualLookup, manualLookup } from './manual-query';
 
 @Component({
   selector: 'an-manual-select',
@@ -78,7 +78,7 @@ import { manualQuery } from './manual-query';
 })
 export class ManualSelect {
   readonly idPrefix = input('manual');
-  readonly lookup = output<string>();
+  readonly lookup = output<ManualLookup>();
 
   protected readonly name = signal('');
   protected readonly ra = signal('');
@@ -87,12 +87,12 @@ export class ManualSelect {
 
   protected submit(event: Event): void {
     event.preventDefault();
-    const result = manualQuery(this.name(), this.ra(), this.dec());
+    const result = manualLookup(this.name(), this.ra(), this.dec());
     if ('error' in result) {
       this.error.set(result.error);
       return;
     }
     this.error.set(null);
-    this.lookup.emit(result.query);
+    this.lookup.emit(result);
   }
 }

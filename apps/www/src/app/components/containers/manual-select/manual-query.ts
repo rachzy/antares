@@ -1,4 +1,6 @@
-export type ManualQuery = { query: string } | { error: string };
+/** What the manual form asks for: a star name, or a position in degrees. */
+export type ManualLookup = { query: string } | { ra: number; dec: number };
+export type ManualResult = ManualLookup | { error: string };
 
 const NUMBER = /^[+-]?\d+(\.\d+)?$/;
 
@@ -16,20 +18,16 @@ function toDegrees(raw: string, isRa: boolean): number {
   if (parts.length > 3) return NaN;
   const [h, m = 0, s = 0] = parts.map(Number);
   const magnitude = Math.abs(h) + m / 60 + s / 3600;
-  const value = isRa
-    ? magnitude * 15
-    : text.startsWith('-')
-      ? -magnitude
-      : magnitude;
-  return value;
+  if (isRa) return magnitude * 15;
+  return text.startsWith('-') ? -magnitude : magnitude;
 }
 
-/** Turns the manual form into the query the sky viewer understands, or says what is wrong with it. */
-export function manualQuery(
+/** Reads the manual form, or says what is wrong with it. A name wins over coordinates. */
+export function manualLookup(
   name: string,
   ra: string,
   dec: string,
-): ManualQuery {
+): ManualResult {
   const star = name.trim();
   if (star) return { query: star };
   if (!ra.trim() && !dec.trim())
@@ -44,8 +42,5 @@ export function manualQuery(
     };
   if (raDeg < 0 || raDeg >= 360 || decDeg < -90 || decDeg > 90)
     return { error: 'RA must be 0–360° and Dec −90° to +90°.' };
-  const sign = decDeg < 0 ? '-' : '+';
-  return {
-    query: `${raDeg.toFixed(6)} ${sign}${Math.abs(decDeg).toFixed(6)}`,
-  };
+  return { ra: raDeg, dec: decDeg };
 }

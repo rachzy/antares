@@ -6,7 +6,7 @@ describe('ManualSelect', () => {
     const fixture = TestBed.createComponent(ManualSelect);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    const lookups: string[] = [];
+    const lookups: unknown[] = [];
     fixture.componentInstance.lookup.subscribe((q) => lookups.push(q));
     const fill = (id: string, value: string) => {
       const input = el.querySelector<HTMLInputElement>(`#manual-${id}`)!;
@@ -24,15 +24,15 @@ describe('ManualSelect', () => {
     const { lookups, fill, submit } = await mount();
     fill('name', 'Kepler-90');
     await submit();
-    expect(lookups).toEqual(['Kepler-90']);
+    expect(lookups).toEqual([{ query: 'Kepler-90' }]);
   });
 
-  it('emits the coordinates as one query', async () => {
+  it('emits the coordinates in degrees', async () => {
     const { lookups, fill, submit } = await mount();
-    fill('ra', '19h 54m 36.7s');
+    fill('ra', '298.65');
     fill('dec', '43.95');
     await submit();
-    expect(lookups).toEqual(['298.652917 +43.950000']);
+    expect(lookups).toEqual([{ ra: 298.65, dec: 43.95 }]);
   });
 
   it('shows what is wrong and emits nothing', async () => {

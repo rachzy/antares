@@ -60,6 +60,7 @@ describe('Select', () => {
   const located = signal<Target | null>(null);
   const locateError = signal<ApiRequestError | null>(null);
   const locate = vi.fn();
+  const lookup = vi.fn();
   const confirmed = signal<Target | null>(null);
   const confirm = vi.fn((t: Target) => confirmed.set(t));
   const reset = vi.fn(() => confirmed.set(null));
@@ -91,6 +92,7 @@ describe('Select', () => {
     located.set(null);
     locateError.set(null);
     locate.mockReset();
+    lookup.mockReset();
     confirm.mockClear();
     startExtract.mockReset();
     loadInfo.mockReset();
@@ -121,6 +123,7 @@ describe('Select', () => {
             loading: signal(false),
             failed: signal(false),
             locate,
+            lookup,
             load: loadInfo,
             reset: resetInfo,
           },
@@ -338,6 +341,29 @@ describe('Select', () => {
     expect(
       el.querySelector<HTMLInputElement>('input[role="combobox"]')?.value,
     ).toBe('Kepler-186');
+  });
+
+  it('looks up the star named in the star query parameter through the API', async () => {
+    TestBed.overrideProvider(ActivatedRoute, {
+      useValue: {
+        snapshot: { queryParamMap: convertToParamMap({ star: 'Kepler-186' }) },
+      },
+    });
+    await mount();
+    expect(lookup).toHaveBeenCalledWith('Kepler-186');
+    expect(gotoObject).not.toHaveBeenCalled();
+  });
+
+  it('locates the position in the ra and dec query parameters through the API', async () => {
+    TestBed.overrideProvider(ActivatedRoute, {
+      useValue: {
+        snapshot: {
+          queryParamMap: convertToParamMap({ ra: '298.65', dec: '43.95' }),
+        },
+      },
+    });
+    await mount();
+    expect(locate).toHaveBeenCalledWith(298.65, 43.95);
   });
 
   it('searches the sky when a suggestion is picked', async () => {
@@ -668,35 +694,71 @@ describe('Select', () => {
       expect(button('Confirm star')).toBeUndefined();
     });
 
-    it('goes back to Aladin and searches the name that was entered', async () => {
-      gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    it('looks the name up through the API without the sky viewer', async () => {
       const page = await openManual();
       fill(page.el, 'select-name', ' Kepler-186 ');
       await submit(page);
-      expect(gotoObject).toHaveBeenCalledWith('Kepler-186', expect.any(Object));
+      expect(lookup).toHaveBeenCalledWith('Kepler-186');
+      expect(gotoObject).not.toHaveBeenCalled();
+      expect(resolveByPosition).not.toHaveBeenCalled();
+    });
+
+    it('confirms the star found and goes back to Aladin with the name filled in', async () => {
+      gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+      const page = await openManual();
+      fill(page.el, 'select-name', 'Kepler-186');
+      await submit(page);
+      located.set(star);
+      await page.fixture.whenStable();
+      expect(confirm).toHaveBeenCalledWith(star);
       expect(page.el.querySelector('an-manual-select')).toBeNull();
       expect(
         page.el.querySelector<HTMLInputElement>('input[role="combobox"]')
           ?.value,
       ).toBe('Kepler-186');
+      expect(gotoObject).toHaveBeenCalledWith(
+        '286.81 49.32',
+        expect.any(Object),
+      );
     });
 
-    it('searches coordinates the same way', async () => {
-      gotoObject.mockImplementation((_q, cb) => cb.success([1, 2]));
+    it('locates coordinates by position', async () => {
       const page = await openManual();
       fill(page.el, 'select-ra', '298.65');
       fill(page.el, 'select-dec', '43.95');
       await submit(page);
-      expect(gotoObject).toHaveBeenCalledWith(
-        '298.650000 +43.950000',
-        expect.any(Object),
-      );
+      expect(locate).toHaveBeenCalledWith(298.65, 43.95);
+      expect(lookup).not.toHaveBeenCalled();
+    });
+
+    it('fills the search with the star name after a coordinate lookup', async () => {
+      const page = await openManual();
+      fill(page.el, 'select-ra', '286.81');
+      fill(page.el, 'select-dec', '49.32');
+      await submit(page);
+      located.set(star);
+      await page.fixture.whenStable();
+      expect(
+        page.el.querySelector<HTMLInputElement>('input[role="combobox"]')
+          ?.value,
+      ).toBe('Kepler-1 b');
+    });
+
+    it('stays on the manual form and toasts when the API finds nothing', async () => {
+      const page = await openManual();
+      fill(page.el, 'select-name', 'Nope');
+      await submit(page);
+      locateError.set(new ApiRequestError(404, 'not_found', 'No such star'));
+      await page.fixture.whenStable();
+      expect(toast.error).toHaveBeenCalledWith('No such star');
+      expect(page.el.querySelector('an-manual-select')).not.toBeNull();
+      expect(confirm).not.toHaveBeenCalled();
     });
 
     it('stays on the manual form and explains a bad entry', async () => {
       const page = await openManual();
       await submit(page);
-      expect(gotoObject).not.toHaveBeenCalled();
+      expect(lookup).not.toHaveBeenCalled();
       expect(page.el.querySelector('[role="alert"]')?.textContent).toContain(
         'Enter a star name or both coordinates.',
       );

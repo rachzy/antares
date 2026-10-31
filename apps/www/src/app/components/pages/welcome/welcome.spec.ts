@@ -122,7 +122,32 @@ describe('Welcome', () => {
       new Event('submit'),
     );
     expect(navigate).toHaveBeenCalledWith(['/select'], {
-      queryParams: { q: 'Kepler-186' },
+      queryParams: { star: 'Kepler-186' },
+    });
+  });
+
+  it('opens the select page on coordinates entered manually', async () => {
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
+    const fixture = TestBed.createComponent(Welcome);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('[data-mode="manual"]')!.click();
+    await fixture.whenStable();
+    for (const [id, value] of [
+      ['welcome-ra', '298.65'],
+      ['welcome-dec', '43.95'],
+    ]) {
+      const input = el.querySelector<HTMLInputElement>(`#${id}`)!;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+    }
+    el.querySelector('an-manual-select form')!.dispatchEvent(
+      new Event('submit'),
+    );
+    expect(navigate).toHaveBeenCalledWith(['/select'], {
+      queryParams: { ra: 298.65, dec: 43.95 },
     });
   });
 });

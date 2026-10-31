@@ -4,6 +4,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideSearch } from '@ng-icons/lucide';
 import { HlmAutocompleteImports } from '@spartan-ng/helm/autocomplete';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import type { ManualLookup } from '../../containers/manual-select/manual-query';
 import { ManualSelect } from '../../containers/manual-select/manual-select';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
 import { type SelectMode, ModeSwitch } from '../../ui/mode-switch';
@@ -51,8 +52,12 @@ export class Welcome {
     if (name) void this.go(name);
   }
 
-  protected lookup(query: string): void {
-    void this.go(query);
+  protected lookup(entry: ManualLookup): void {
+    const queryParams =
+      'query' in entry
+        ? { star: entry.query }
+        : { ra: entry.ra, dec: entry.dec };
+    void this.router.navigate(['/select'], { queryParams });
   }
 
   protected submit(): void {
