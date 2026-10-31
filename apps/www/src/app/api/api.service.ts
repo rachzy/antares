@@ -75,6 +75,10 @@ export class ApiService {
     });
   }
 
+  starInfoByQuery(query: string): Observable<StarInfo> {
+    return this.get<StarInfo>(API_ROUTES.starInfo, { query });
+  }
+
   listRuns(): Observable<Run[]> {
     return this.get<{ runs: Run[] }>(API_ROUTES.listRuns).pipe(
       map((body) => body.runs),

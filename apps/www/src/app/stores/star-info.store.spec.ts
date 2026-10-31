@@ -19,11 +19,15 @@ const info: StarInfo = {
 
 describe('StarInfoStore', () => {
   const starInfo = vi.fn();
+  const starInfoByQuery = vi.fn();
 
   beforeEach(() => {
     starInfo.mockReset();
+    starInfoByQuery.mockReset();
     TestBed.configureTestingModule({
-      providers: [{ provide: ApiService, useValue: { starInfo } }],
+      providers: [
+        { provide: ApiService, useValue: { starInfo, starInfoByQuery } },
+      ],
     });
   });
 
@@ -42,6 +46,16 @@ describe('StarInfoStore', () => {
     const store = TestBed.inject(StarInfoStore);
     store.locate(284.4301, 49.3002);
     expect(starInfo).toHaveBeenCalledWith(284.4301, 49.3002);
+    expect(store.target()).toEqual(target);
+    expect(store.details()).toEqual(info.star);
+  });
+
+  it('looks a star up by name and keeps the target the API found', () => {
+    starInfoByQuery.mockReturnValue(of(info));
+    const store = TestBed.inject(StarInfoStore);
+    store.lookup('Kepler-90');
+    expect(starInfoByQuery).toHaveBeenCalledWith('Kepler-90');
+    expect(starInfo).not.toHaveBeenCalled();
     expect(store.target()).toEqual(target);
     expect(store.details()).toEqual(info.star);
   });

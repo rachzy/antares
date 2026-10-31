@@ -4,7 +4,10 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideSearch } from '@ng-icons/lucide';
 import { HlmAutocompleteImports } from '@spartan-ng/helm/autocomplete';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import type { ManualLookup } from '../../containers/manual-select/manual-query';
+import { ManualSelect } from '../../containers/manual-select/manual-select';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
+import { type SelectMode, ModeSwitch } from '../../ui/mode-switch';
 import { suggestKeplerStars } from '../select/kepler-suggestions';
 
 @Component({
@@ -15,6 +18,8 @@ import { suggestKeplerStars } from '../select/kepler-suggestions';
     SkyViewer,
     HlmAutocompleteImports,
     HlmButtonImports,
+    ManualSelect,
+    ModeSwitch,
   ],
   providers: [provideIcons({ lucideArrowRight, lucideSearch })],
   templateUrl: './welcome.html',
@@ -23,6 +28,7 @@ import { suggestKeplerStars } from '../select/kepler-suggestions';
 export class Welcome {
   private readonly router = inject(Router);
   private closedAt = 0;
+  protected readonly mode = signal<SelectMode>('aladin');
   protected readonly query = signal('');
   protected readonly suggestionsOpen = signal(false);
   protected readonly suggestions = computed(() =>
@@ -44,6 +50,14 @@ export class Welcome {
 
   protected pick(name: string | null): void {
     if (name) void this.go(name);
+  }
+
+  protected lookup(entry: ManualLookup): void {
+    const queryParams =
+      'query' in entry
+        ? { star: entry.query }
+        : { ra: entry.ra, dec: entry.dec };
+    void this.router.navigate(['/select'], { queryParams });
   }
 
   protected submit(): void {

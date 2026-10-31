@@ -18,6 +18,8 @@ interface Position {
   dec_deg: number;
 }
 
+type Lookup = Position | { query: string };
+
 const empty: StarInfoState = {
   target: null,
   details: null,
@@ -30,11 +32,14 @@ export const StarInfoStore = signalStore(
   { providedIn: 'root' },
   withState<StarInfoState>(empty),
   withMethods((store, api = inject(ApiService)) => {
-    const fetch = rxMethod<Position>(
+    const fetch = rxMethod<Lookup>(
       pipe(
         tap(() => patchState(store, { ...empty, loading: true })),
-        switchMap(({ ra_deg, dec_deg }) =>
-          api.starInfo(ra_deg, dec_deg).pipe(
+        switchMap((lookup) =>
+          ('query' in lookup
+            ? api.starInfoByQuery(lookup.query)
+            : api.starInfo(lookup.ra_deg, lookup.dec_deg)
+          ).pipe(
             tap((info) =>
               patchState(store, {
                 target: info.target,
@@ -53,6 +58,8 @@ export const StarInfoStore = signalStore(
     return {
       // SIMBAD picks the star nearest the position, so any star has details, mission target or not.
       locate: (ra_deg: number, dec_deg: number) => fetch({ ra_deg, dec_deg }),
+      // The API resolves the name through Shaula, so no sky viewer is involved.
+      lookup: (query: string) => fetch({ query }),
       load: (target: Target) => {
         const held = store.target();
         if (

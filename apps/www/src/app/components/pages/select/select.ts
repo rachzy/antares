@@ -19,8 +19,11 @@ import type { Target } from '../../../api/api.types';
 import { RunStore } from '../../../stores/run.store';
 import { StarInfoStore } from '../../../stores/star-info.store';
 import { TargetStore } from '../../../stores/target.store';
+import type { ManualLookup } from '../../containers/manual-select/manual-query';
+import { ManualSelect } from '../../containers/manual-select/manual-select';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
 import { StarDetailsView } from '../../containers/star-details/star-details';
+import { type SelectMode, ModeSwitch } from '../../ui/mode-switch';
 import { isKeplerStar, suggestKeplerStars } from './kepler-suggestions';
 import { simbadUrl } from './simbad-url';
 
@@ -33,6 +36,8 @@ export const KEPLER_ZOOM_FOV_DEG = 0.02;
   imports: [
     SkyViewer,
     StarDetailsView,
+    ManualSelect,
+    ModeSwitch,
     NgIcon,
     HlmButtonImports,
     HlmCheckboxImports,
@@ -48,14 +53,16 @@ export class Select {
   private readonly run = inject(RunStore);
   protected readonly starInfo = inject(StarInfoStore);
   private readonly router = inject(Router);
-  private readonly initialQuery = signal(
-    inject(ActivatedRoute).snapshot.queryParamMap.get('q'),
-  );
+  private readonly initialParams =
+    inject(ActivatedRoute).snapshot.queryParamMap;
+  private readonly initialQuery = signal(this.initialParams.get('q'));
+  private pendingEntry: ManualLookup | null = null;
   private readonly sky = viewChild(SkyViewer);
   private readonly awaiting = signal(false);
   private readonly extracting = signal(false);
   protected readonly pending = signal<Target | null>(null);
   private closedAt = 0;
+  protected readonly mode = signal<SelectMode>('aladin');
   protected readonly query = signal('');
   protected readonly searching = signal(false);
   protected readonly suggestionsOpen = signal(false);
@@ -104,6 +111,7 @@ export class Select {
         this.awaiting.set(false);
         untracked(() => {
           toast.success(`Found ${target.display_name}`);
+          this.showEntry(target);
           const busy = [this.run.extract(), this.run.score()].some(
             (s) => s.status === 'running',
           );
@@ -112,6 +120,7 @@ export class Select {
         });
       } else if (error) {
         this.awaiting.set(false);
+        this.pendingEntry = null;
         untracked(() => toast.error(error.message));
       }
     });
@@ -139,6 +148,7 @@ export class Select {
         void this.search();
       });
     });
+    this.startFromParams();
     let toasted = false;
     effect(() => {
       if (toasted || !this.sky()?.loadError()) return;
@@ -164,6 +174,40 @@ export class Select {
     if (!center) return;
     this.awaiting.set(true);
     this.starInfo.locate(center[0], center[1]);
+  }
+
+  // The API resolves the entry and fills the star card, so the sky viewer is not needed to extract.
+  protected lookup(entry: ManualLookup): void {
+    if (this.awaiting()) return;
+    this.pendingEntry = entry;
+    this.awaiting.set(true);
+    if ('query' in entry) this.starInfo.lookup(entry.query);
+    else this.starInfo.locate(entry.ra, entry.dec);
+  }
+
+  // Back to Aladin with the entry filled in, so the lookup reads as the same search; the viewer follows when it can.
+  private showEntry(target: Target): void {
+    const entry = this.pendingEntry;
+    this.pendingEntry = null;
+    if (!entry) return;
+    this.mode.set('aladin');
+    this.query.set('query' in entry ? entry.query : target.display_name);
+    void this.sky()?.goto(
+      `${target.ra_deg} ${target.dec_deg}`,
+      KEPLER_ZOOM_FOV_DEG,
+    );
+  }
+
+  private startFromParams(): void {
+    const star = this.initialParams.get('star')?.trim();
+    const ra = this.initialParams.get('ra');
+    const dec = this.initialParams.get('dec');
+    if (star) this.lookup({ query: star });
+    else if (ra !== null && dec !== null && ra.trim() && dec.trim()) {
+      const position = { ra: Number(ra), dec: Number(dec) };
+      if (Number.isFinite(position.ra) && Number.isFinite(position.dec))
+        this.lookup(position);
+    }
   }
 
   protected setSuggestionsState(state: string): void {
