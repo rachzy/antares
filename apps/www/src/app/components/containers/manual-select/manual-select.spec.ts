@@ -52,4 +52,24 @@ describe('ManualSelect', () => {
     await submit();
     expect(el.querySelector('[role="alert"]')).toBeNull();
   });
+
+  it('blocks the fields and shows a spinner while loading', async () => {
+    const fixture = TestBed.createComponent(ManualSelect);
+    fixture.componentRef.setInput('loading', true);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const inputs = Array.from(el.querySelectorAll<HTMLInputElement>('input'));
+    expect(inputs).toHaveLength(3);
+    expect(inputs.every((input) => input.disabled)).toBe(true);
+    const button = el.querySelector<HTMLButtonElement>('button[type="submit"]');
+    expect(button?.disabled).toBe(true);
+    expect(button?.querySelector('[data-spinner]')).not.toBeNull();
+  });
+
+  it('leaves the fields and button enabled when idle', async () => {
+    const { el } = await mount();
+    expect(el.querySelector('input:disabled')).toBeNull();
+    expect(el.querySelector('button:disabled')).toBeNull();
+    expect(el.querySelector('[data-spinner]')).toBeNull();
+  });
 });

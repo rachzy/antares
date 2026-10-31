@@ -141,7 +141,11 @@
               Use a name or catalog ID, or the position.
             </p>
           </div>
-          <an-manual-select idPrefix="select" (lookup)="lookup($event)" />
+          <an-manual-select
+            idPrefix="select"
+            [loading]="locating()"
+            (lookup)="lookup($event)"
+          />
         </section>
       </div>
     }

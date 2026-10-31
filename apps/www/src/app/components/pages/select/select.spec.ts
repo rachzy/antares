@@ -744,6 +744,19 @@ describe('Select', () => {
       ).toBe('Kepler-1 b');
     });
 
+    it('blocks the form with a spinner while the star is being found', async () => {
+      const page = await openManual();
+      fill(page.el, 'select-name', 'Kepler-186');
+      await submit(page);
+      const form = page.el.querySelector('an-manual-select')!;
+      expect(form.querySelector('input:disabled')).not.toBeNull();
+      expect(form.querySelector('[data-spinner]')).not.toBeNull();
+      locateError.set(new ApiRequestError(404, 'not_found', 'No such star'));
+      await page.fixture.whenStable();
+      expect(form.querySelector('input:disabled')).toBeNull();
+      expect(form.querySelector('[data-spinner]')).toBeNull();
+    });
+
     it('stays on the manual form and toasts when the API finds nothing', async () => {
       const page = await openManual();
       fill(page.el, 'select-name', 'Nope');
