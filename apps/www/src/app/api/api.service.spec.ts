@@ -61,6 +61,16 @@ describe('ApiService', () => {
     expect(out).toEqual({ star: { sources: [] } });
   });
 
+  it('gets starInfo from the targets/info route with a name', () => {
+    const base = TestBed.inject(API_BASE_URL);
+    let out: unknown;
+    api.starInfoByQuery('Kepler-186').subscribe((v) => (out = v));
+    const req = http.expectOne(`${base}/targets/info?query=Kepler-186`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ star: { sources: [] } });
+    expect(out).toEqual({ star: { sources: [] } });
+  });
+
   it('maps an error envelope and Retry-After', () => {
     let err: unknown;
     api.health().subscribe({ error: (e) => (err = e) });
