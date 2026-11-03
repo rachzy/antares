@@ -1,9 +1,19 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideSearch } from '@ng-icons/lucide';
+import { toast } from '@spartan-ng/brain/sonner';
 import { HlmAutocompleteImports } from '@spartan-ng/helm/autocomplete';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { RunStore } from '../../../stores/run.store';
+import { StarInfoStore } from '../../../stores/star-info.store';
 import type { ManualLookup } from '../../containers/manual-select/manual-query';
 import { ManualSelect } from '../../containers/manual-select/manual-select';
 import { SkyViewer } from '../../containers/sky-viewer/sky-viewer';
@@ -27,7 +37,11 @@ import { suggestKeplerStars } from '../select/kepler-suggestions';
 })
 export class Welcome {
   private readonly router = inject(Router);
+  private readonly starInfo = inject(StarInfoStore);
+  private readonly run = inject(RunStore);
+  private entry: ManualLookup | null = null;
   private closedAt = 0;
+  protected readonly locating = signal(false);
   protected readonly mode = signal<SelectMode>('aladin');
   protected readonly query = signal('');
   protected readonly suggestionsOpen = signal(false);
@@ -35,6 +49,36 @@ export class Welcome {
     suggestKeplerStars(this.query()),
   );
   protected readonly examples = ['Kepler-90', 'Kepler-186', 'Kepler-22'];
+
+  constructor() {
+    effect(() => {
+      const target = this.starInfo.target();
+      const error = this.starInfo.error();
+      if (!untracked(this.locating)) return;
+      if (!target && !error) return;
+      this.locating.set(false);
+      untracked(() => {
+        const entry = this.entry;
+        this.entry = null;
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        // A running job is kept: the select page asks before replacing it.
+        const busy = [this.run.extract(), this.run.score()].some(
+          (s) => s.status === 'running',
+        );
+        if (busy && entry) {
+          void this.router.navigate(['/select'], {
+            queryParams: this.entryParams(entry),
+          });
+          return;
+        }
+        if (target) this.run.confirm(target);
+        void this.router.navigate(['/select']);
+      });
+    });
+  }
 
   protected setSuggestionsState(state: string): void {
     if (state !== 'open') this.closedAt = Date.now();
@@ -52,12 +96,19 @@ export class Welcome {
     if (name) void this.go(name);
   }
 
+  // The select page opens only once the star is found, so it lands with the star card ready.
   protected lookup(entry: ManualLookup): void {
-    const queryParams =
-      'query' in entry
-        ? { star: entry.query }
-        : { ra: entry.ra, dec: entry.dec };
-    void this.router.navigate(['/select'], { queryParams });
+    if (this.locating()) return;
+    this.entry = entry;
+    this.locating.set(true);
+    if ('query' in entry) this.starInfo.lookup(entry.query);
+    else this.starInfo.locate(entry.ra, entry.dec);
+  }
+
+  private entryParams(entry: ManualLookup) {
+    return 'query' in entry
+      ? { star: entry.query }
+      : { ra: entry.ra, dec: entry.dec };
   }
 
   protected submit(): void {

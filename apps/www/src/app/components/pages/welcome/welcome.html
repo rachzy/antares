@@ -75,6 +75,7 @@
     <an-manual-select
       class="w-full text-left"
       idPrefix="welcome"
+      [loading]="locating()"
       (lookup)="lookup($event)"
     />
   }
