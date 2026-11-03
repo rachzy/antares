@@ -6,6 +6,7 @@ import type {
   SubscriptionEvent,
 } from '../../../api/api.types';
 import { RunStore, type Stage } from '../../../stores/run.store';
+import { StarInfoStore } from '../../../stores/star-info.store';
 import { clock } from '../../ui/job-log/job-log';
 import { Score } from './score';
 
@@ -70,6 +71,10 @@ describe('Score', () => {
         {
           provide: RunStore,
           useValue: { extract, score, startScore, retry },
+        },
+        {
+          provide: StarInfoStore,
+          useValue: { details: signal(null), load: vi.fn() },
         },
       ],
     }).compileComponents();
