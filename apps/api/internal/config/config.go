@@ -98,7 +98,7 @@ func Load(getenv func(string) string) (Config, error) {
 		MaxActive:        number("ANTARES_MAX_ACTIVE", 2),
 		MaxQueue:         number("ANTARES_MAX_QUEUE", 50),
 		PromotionGrace:   duration("ANTARES_PROMOTION_GRACE", 30*time.Second),
-		JobTimeout:       duration("ANTARES_JOB_TIMEOUT", 30*time.Minute),
+		JobTimeout:       duration("ANTARES_JOB_TIMEOUT", 60*time.Minute),
 		StallTimeout:     duration("ANTARES_STALL_TIMEOUT", 5*time.Minute),
 		TokenRetention:   duration("ANTARES_TOKEN_RETENTION", 7*24*time.Hour),
 		TESSTTL:          duration("ANTARES_TESS_TTL", 30*24*time.Hour),
