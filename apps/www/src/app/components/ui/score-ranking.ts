@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import {
   DASH,
@@ -25,7 +25,15 @@ import {
         </thead>
         <tbody hlmTBody>
           @for (r of rows(); track $index) {
-            <tr hlmTr>
+            <tr
+              hlmTr
+              class="cursor-pointer"
+              [class.bg-muted]="r === selected()"
+              [attr.aria-selected]="r === selected()"
+              tabindex="0"
+              (click)="picked.emit(r)"
+              (keydown.enter)="picked.emit(r)"
+            >
               <td hlmTd class="font-mono">{{ periodLabel(r.period) }}</td>
               <td hlmTd>{{ depth(r) }}</td>
               <td hlmTd class="w-full">
@@ -69,6 +77,8 @@ import {
 })
 export class ScoreRanking {
   readonly rows = input.required<ScoredRow[]>();
+  readonly selected = input<ScoredRow | null>(null);
+  readonly picked = output<ScoredRow>();
 
   protected readonly periodLabel = periodLabel;
   protected readonly percent = percent;

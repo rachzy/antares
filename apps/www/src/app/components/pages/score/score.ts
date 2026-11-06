@@ -1,21 +1,27 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { RunStore } from '../../../stores/run.store';
+import { StarInfoStore } from '../../../stores/star-info.store';
 import { rank } from '../../../utils/scoring';
 import { JobLog } from '../../ui/job-log/job-log';
 import { ScoreDetails } from '../../ui/score-details';
 import { ScoreMatrix } from '../../ui/score-matrix';
 import { ScoreRanking } from '../../ui/score-ranking';
+import { SystemPreview } from '../../ui/system-preview';
+import type { ScoredRow } from '../../../utils/scoring';
 
 @Component({
   imports: [
     HlmButtonImports,
+    HlmCheckboxImports,
     HlmTabsImports,
     JobLog,
     ScoreDetails,
     ScoreMatrix,
     ScoreRanking,
+    SystemPreview,
   ],
   selector: 'an-score',
   templateUrl: './score.html',
@@ -23,6 +29,9 @@ import { ScoreRanking } from '../../ui/score-ranking';
 })
 export class Score {
   protected readonly run = inject(RunStore);
+  protected readonly starInfo = inject(StarInfoStore);
+  protected readonly showPreview = signal(true);
+  protected readonly selected = signal<ScoredRow | null>(null);
   protected readonly predictions = computed(
     () => this.run.score().result?.predictions ?? [],
   );
@@ -31,4 +40,11 @@ export class Score {
     const n = this.predictions().length;
     return `${n} candidate${n === 1 ? '' : 's'} scored`;
   });
+
+  constructor() {
+    effect(() => {
+      const target = this.run.score().result?.target;
+      if (target) this.starInfo.load(target);
+    });
+  }
 }

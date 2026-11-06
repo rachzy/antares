@@ -73,7 +73,31 @@
         </div>
         <div class="bg-card min-h-0 flex-1 overflow-auto rounded-[10px] p-3.5">
           <div hlmTabsContent="ranking">
-            <an-score-ranking [rows]="rows()" />
+            <div class="mb-3 flex w-fit items-center gap-2 text-sm">
+              <hlm-checkbox
+                inputId="show-preview"
+                [checked]="showPreview()"
+                (checkedChange)="showPreview.set($event)"
+              /><label for="show-preview">Show system preview</label>
+            </div>
+            <div class="flex flex-col gap-4 lg:flex-row">
+              <an-score-ranking
+                class="min-w-0 lg:flex-1"
+                [rows]="rows()"
+                [selected]="selected()"
+                (picked)="selected.set($event)"
+              />
+              @if (showPreview() && score.result; as result) {
+                <an-system-preview
+                  class="min-w-0 lg:flex-1"
+                  [target]="result.target"
+                  [details]="starInfo.details()"
+                  [rows]="rows()"
+                  [selected]="selected()"
+                  (picked)="selected.set($event)"
+                />
+              }
+            </div>
           </div>
           <div hlmTabsContent="matrix">
             <an-score-matrix [rows]="rows()" />

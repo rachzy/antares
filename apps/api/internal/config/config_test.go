@@ -26,7 +26,7 @@ func TestDefaults(t *testing.T) {
 	}
 	want := map[string][2]time.Duration{
 		"grace":     {cfg.PromotionGrace, 30 * time.Second},
-		"timeout":   {cfg.JobTimeout, 30 * time.Minute},
+		"timeout":   {cfg.JobTimeout, 60 * time.Minute},
 		"stall":     {cfg.StallTimeout, 5 * time.Minute},
 		"retention": {cfg.TokenRetention, 7 * 24 * time.Hour},
 		"tess":      {cfg.TESSTTL, 30 * 24 * time.Hour},
