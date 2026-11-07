@@ -4,7 +4,7 @@ Every push to `main` runs `.github/workflows/deploy.yml`: it rsyncs the reposito
 
 ## Releasing
 
-Run the `Release` workflow (Actions > Release > Run workflow). Pick `patch`, `minor` or `major` to bump the latest `vX.Y.Z` tag (the first release starts from `v0.0.0`), or type an exact tag such as `v1.0.0` to override the bump. It merges `dev` into `main` with a merge commit, pushes the tag, creates a GitHub Release with generated notes and then calls `deploy.yml` for that tag.
+Run the `Release` workflow (Actions > Release > Run workflow). Pick `patch`, `minor` or `major` to bump the latest `vX.Y.Z` tag (the first release starts from `v0.0.0`), or type an exact tag such as `v1.0.0` to override the bump. It merges `dev` into `main` with a merge commit, pushes the tag, creates a GitHub Release with generated notes and then calls `deploy.yml` for that tag. Untick the `Deploy` checkbox to release without deploying.
 
 Pushes made with the default `GITHUB_TOKEN` do not trigger other workflows, which is why the release calls the deploy directly. If branch protection on `main` blocks the push, allow GitHub Actions to bypass it or push with a PAT/GitHub App token instead.
 

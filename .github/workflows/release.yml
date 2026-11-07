@@ -12,6 +12,10 @@ on:
         description: Exact tag to release (e.g. v1.2.0); overrides the bump
         type: string
         required: false
+      deploy:
+        description: Deploy to the VPS after releasing
+        type: boolean
+        default: true
 
 concurrency:
   group: release
@@ -78,6 +82,7 @@ jobs:
 
   deploy:
     needs: release
+    if: inputs.deploy
     uses: ./.github/workflows/deploy.yml
     with:
       ref: ${{ needs.release.outputs.tag }}
