@@ -1,12 +1,13 @@
 # Deploying to a VPS
 
-Every push to `main` runs `.github/workflows/deploy.yml`: it rsyncs the repository to the VPS over SSH and runs `make build-up ENV=prod` there.
+Publishing a GitHub Release runs `.github/workflows/deploy.yml` for the release tag (it can also be run by hand from the Actions tab on any branch): it rsyncs the repository to the VPS over SSH and runs `make build-up ENV=prod` there.
 
 ## Releasing
 
-Run the `Release` workflow (Actions > Release > Run workflow). Pick `patch`, `minor` or `major` to bump the latest `vX.Y.Z` tag (the first release starts from `v0.0.0`), or type an exact tag such as `v1.0.0` to override the bump. It merges `dev` into `main` with a merge commit, pushes the tag, creates a GitHub Release with generated notes and then calls `deploy.yml` for that tag. Untick the `Deploy to prod` checkbox to release without deploying.
+1. Open a PR from `dev` to `main` and merge it once reviewed.
+2. On GitHub, go to Releases > Draft a new release, create a new `vX.Y.Z` tag on `main`, click **Generate release notes** and publish.
 
-Pushes made with the default `GITHUB_TOKEN` do not trigger other workflows, which is why the release calls the deploy directly. If branch protection on `main` blocks the push, allow GitHub Actions to bypass it or push with a PAT/GitHub App token instead.
+Publishing the release deploys that tag. Use Actions > Deploy > Run workflow to redeploy a branch without releasing.
 
 ## GitHub secrets
 

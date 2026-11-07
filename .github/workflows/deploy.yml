@@ -1,15 +1,9 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
-  workflow_call:
-    inputs:
-      ref:
-        description: Git ref to deploy
-        type: string
-        default: main
 
 concurrency:
   group: deploy
@@ -24,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.event.release.tag_name || github.ref }}
 
       - name: Configure SSH
         run: |
