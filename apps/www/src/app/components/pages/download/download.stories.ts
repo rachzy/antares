@@ -9,7 +9,7 @@ import { Download } from './download';
 
 const run = (extract: Parameters<typeof stage>[0]) =>
   applicationConfig({
-    providers: [provideRun({ extract: stage(extract), score: stage({}) })],
+    providers: [...provideRun({ extract: stage(extract), score: stage({}) })],
   });
 
 const meta: Meta<Download> = {

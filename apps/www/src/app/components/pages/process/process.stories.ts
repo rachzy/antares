@@ -9,7 +9,7 @@ import { Process } from './process';
 
 const run = (extract: Parameters<typeof stage>[0]) =>
   applicationConfig({
-    providers: [provideRun({ extract: stage(extract), score: stage({}) })],
+    providers: [...provideRun({ extract: stage(extract), score: stage({}) })],
   });
 
 const all = () => [...events.download(), ...events.process()];

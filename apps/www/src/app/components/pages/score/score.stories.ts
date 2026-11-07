@@ -10,7 +10,7 @@ import { Score } from './score';
 const extract = stage({ status: 'done', result: jobResult(false) });
 const run = (score: Parameters<typeof stage>[0]) =>
   applicationConfig({
-    providers: [provideRun({ extract, score: stage(score) })],
+    providers: [...provideRun({ extract, score: stage(score) })],
   });
 
 const meta: Meta<Score> = { title: 'Pipeline/3 Score', component: Score };
