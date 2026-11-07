@@ -10,7 +10,6 @@ on:
         description: Git ref to deploy
         type: string
         default: main
-    secrets: inherit
 
 concurrency:
   group: deploy
