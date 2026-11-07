@@ -83,6 +83,29 @@
         "cwd": "{workspaceRoot}",
         "command": "docker build -f apps/www/Dockerfile -t antares-www:local ."
       }
+    },
+    "storybook": {
+      "executor": "@storybook/angular:start-storybook",
+      "options": {
+        "configDir": "apps/www/.storybook",
+        "browserTarget": "www:build:development",
+        "compodoc": false,
+        "tsConfig": "apps/www/.storybook/tsconfig.json",
+        "port": 6006,
+        "sourceMap": false
+      }
+    },
+    "build-storybook": {
+      "executor": "@storybook/angular:build-storybook",
+      "outputs": ["{options.outputDir}"],
+      "options": {
+        "configDir": "apps/www/.storybook",
+        "browserTarget": "www:build:development",
+        "compodoc": false,
+        "tsConfig": "apps/www/.storybook/tsconfig.json",
+        "outputDir": "dist/storybook/www",
+        "sourceMap": false
+      }
     }
   }
 }
