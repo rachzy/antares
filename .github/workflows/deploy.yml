@@ -1,8 +1,8 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -17,6 +17,8 @@ jobs:
       SSH_PORT: ${{ secrets.VPS_PORT || '22' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
 
       - name: Configure SSH
         run: |

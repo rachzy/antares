@@ -1,6 +1,13 @@
 # Deploying to a VPS
 
-Every push to `main` runs `.github/workflows/deploy.yml`: it rsyncs the repository to the VPS over SSH and runs `make build-up ENV=prod` there.
+Publishing a GitHub Release runs `.github/workflows/deploy.yml` for the release tag (it can also be run by hand from the Actions tab on any branch): it rsyncs the repository to the VPS over SSH and runs `make build-up ENV=prod` there.
+
+## Releasing
+
+1. Open a PR from `dev` to `main` and merge it once reviewed.
+2. On GitHub, go to Releases > Draft a new release, create a new `vX.Y.Z` tag on `main`, click **Generate release notes** and publish.
+
+Publishing the release deploys that tag. Use Actions > Deploy > Run workflow to redeploy a branch without releasing.
 
 ## GitHub secrets
 
