@@ -49,63 +49,87 @@
     @if (rows().length === 0) {
       <p class="text-muted-foreground text-sm">No candidates scored</p>
     } @else {
-      <div hlmTabs tab="ranking" class="min-h-0 w-full flex-1">
-        <div class="flex items-center justify-between gap-2">
-          <div hlmTabsList class="h-auto">
-            <button hlmTabsTrigger="ranking" class="px-3.5 py-1.5">
-              Ranking
-            </button>
-            <button hlmTabsTrigger="matrix" class="px-3.5 py-1.5">
-              Model matrix
-            </button>
-            <button hlmTabsTrigger="details" class="px-3.5 py-1.5">
-              Scoring details
-            </button>
-          </div>
-          <button
-            hlmBtn
-            variant="secondary"
-            type="button"
-            (click)="run.startScore()"
+      <div class="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+        <button
+          data-tabs-strip
+          type="button"
+          class="bg-card text-muted-foreground hover:text-foreground flex shrink-0 items-center justify-center gap-2 overflow-hidden rounded-[10px] text-xs transition-[width,height,margin,opacity] duration-300 ease-in-out motion-reduce:transition-none max-lg:flex-row lg:flex-col lg:pt-2"
+          [class]="
+            previewMode() === 'maximized'
+              ? 'opacity-100 max-lg:h-11 lg:w-11'
+              : 'pointer-events-none opacity-0 max-lg:-my-1.5 max-lg:h-0 lg:-mx-1.5 lg:w-0'
+          "
+          title="Show tabs"
+          aria-label="Show tabs"
+          [attr.tabindex]="previewMode() === 'maximized' ? 0 : -1"
+          (click)="previewMode.set('expanded')"
+        >
+          <ng-icon name="lucideChevronRight" class="max-lg:rotate-90" />
+          <span class="whitespace-nowrap lg:[writing-mode:vertical-rl]"
+            >Ranking · Model matrix · Scoring details</span
           >
-            Re-run scoring
-          </button>
-        </div>
-        <div class="bg-card min-h-0 flex-1 overflow-auto rounded-[10px] p-3.5">
-          <div hlmTabsContent="ranking">
-            <div class="mb-3 flex w-fit items-center gap-2 text-sm">
-              <hlm-checkbox
-                inputId="show-preview"
-                [checked]="showPreview()"
-                (checkedChange)="showPreview.set($event)"
-              /><label for="show-preview">Show system preview</label>
+        </button>
+        <div
+          data-tabs
+          class="flex min-h-0 min-w-0 grow basis-0 flex-col overflow-hidden transition-[flex-grow,opacity,margin] duration-300 ease-in-out motion-reduce:transition-none"
+          [class]="
+            previewMode() === 'maximized'
+              ? 'pointer-events-none grow-0 opacity-0 max-lg:-my-1.5 lg:-mx-1.5'
+              : 'opacity-100'
+          "
+          [attr.inert]="previewMode() === 'maximized' ? '' : null"
+        >
+          <div hlmTabs tab="ranking" class="min-h-0 w-full flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <div hlmTabsList class="h-auto">
+                <button hlmTabsTrigger="ranking" class="px-3.5 py-1.5">
+                  Ranking
+                </button>
+                <button hlmTabsTrigger="matrix" class="px-3.5 py-1.5">
+                  Model matrix
+                </button>
+                <button hlmTabsTrigger="details" class="px-3.5 py-1.5">
+                  Scoring details
+                </button>
+              </div>
+              <button
+                hlmBtn
+                variant="secondary"
+                type="button"
+                (click)="run.startScore()"
+              >
+                Re-run scoring
+              </button>
             </div>
-            <div class="flex flex-col gap-4 lg:flex-row">
-              <an-score-ranking
-                class="min-w-0 lg:flex-1"
-                [rows]="rows()"
-                [selected]="selected()"
-                (picked)="selected.set($event)"
-              />
-              @if (showPreview() && score.result; as result) {
-                <an-system-preview
-                  class="min-w-0 lg:flex-1"
-                  [target]="result.target"
-                  [details]="starInfo.details()"
+            <div
+              class="bg-card min-h-0 flex-1 overflow-auto rounded-[10px] p-3.5"
+            >
+              <div hlmTabsContent="ranking">
+                <an-score-ranking
                   [rows]="rows()"
                   [selected]="selected()"
                   (picked)="selected.set($event)"
                 />
-              }
+              </div>
+              <div hlmTabsContent="matrix">
+                <an-score-matrix [rows]="rows()" />
+              </div>
+              <div hlmTabsContent="details">
+                <an-score-details [rows]="rows()" [result]="score.result!" />
+              </div>
             </div>
           </div>
-          <div hlmTabsContent="matrix">
-            <an-score-matrix [rows]="rows()" />
-          </div>
-          <div hlmTabsContent="details">
-            <an-score-details [rows]="rows()" [result]="score.result!" />
-          </div>
         </div>
+        @if (score.result; as result) {
+          <an-system-preview
+            [(mode)]="previewMode"
+            [target]="result.target"
+            [details]="starInfo.details()"
+            [rows]="rows()"
+            [selected]="selected()"
+            (picked)="selected.set($event)"
+          />
+        }
       </div>
     }
   }

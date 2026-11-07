@@ -206,4 +206,26 @@ describe('Score', () => {
       ),
     ).toEqual(['loaded from cache']);
   });
+
+  it('keeps the system preview beside every tab and can maximize it', async () => {
+    done([row(0.4)]);
+    const { fixture, el, tabs } = await mount();
+    const tabsEl = () => el.querySelector('[data-tabs]');
+    expect(el.querySelector('an-system-preview')).not.toBeNull();
+    expect(el.textContent).not.toContain('Show system preview');
+    tabs()[1].click();
+    await fixture.whenStable();
+    expect(el.querySelector('an-system-preview')).not.toBeNull();
+    expect(tabsEl()?.hasAttribute('inert')).toBe(false);
+
+    el.querySelector<HTMLButtonElement>(
+      '[aria-label="Maximize system preview"]',
+    )?.click();
+    await fixture.whenStable();
+    expect(tabsEl()?.hasAttribute('inert')).toBe(true);
+
+    el.querySelector<HTMLButtonElement>('[data-tabs-strip]')?.click();
+    await fixture.whenStable();
+    expect(tabsEl()?.hasAttribute('inert')).toBe(false);
+  });
 });
