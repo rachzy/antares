@@ -13,7 +13,7 @@ on:
         type: string
         required: false
       deploy:
-        description: Deploy to the VPS after releasing
+        description: Deploy to prod
         type: boolean
         default: true
 
